@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Control Center - Simple</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #1890ff;
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4d4f;
+        }
+        
+        .status-dot.connected {
+            background: #52c41a;
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 24px;
+        }
+        
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-height: 400px;
+        }
+        
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .avatar.user {
+            background: #1890ff;
+        }
+        
+        .avatar.assistant {
+            background: #52c41a;
+        }
+        
+        .message-content {
+            background: #f6f6f6;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 70%;
+            line-height: 1.6;
+        }
+        
+        .message.user .message-content {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+        }
+        
+        .message.assistant .message-content {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+        }
+        
+        .timestamp {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+        }
+        
+        .thinking {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #1890ff;
+            font-style: italic;
+            margin-bottom: 16px;
+        }
+        
+        .thinking .dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .thinking .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #1890ff;
+            animation: thinking 1.5s infinite;
+        }
+        
+        .thinking .dot:nth-child(2) {
+            animation-delay: 0.3s;
+        }
+        
+        .thinking .dot:nth-child(3) {
+            animation-delay: 0.6s;
+        }
+        
+        @keyframes thinking {
+            0%, 60%, 100% { opacity: 0.3; }
+            30% { opacity: 1; }
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 12px;
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .input-area input {
+            flex: 1;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .input-area input:focus {
+            border-color: #1890ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+        
+        .input-area button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            min-width: 60px;
+        }
+        
+        .input-area button:hover {
+            background: #40a9ff;
+        }
+        
+        .input-area button:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+        
+        .welcome {
+            text-align: center;
+            color: #999;
+            margin: 60px 0;
+        }
+        
+        .welcome .robot-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .quick-commands {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .quick-cmd {
+            background: #f0f0f0;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .quick-cmd:hover {
+            background: #e6f7ff;
+            border-color: #1890ff;
+        }
+
+        .plan-message .message-content {
+            background: #f0f9eb;
+            border: 1px solid #95de64;
+        }
+
+        .step-message .message-content {
+            background: #e6f4ff;
+            border: 1px solid #91caff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">🤖 Robot Control Center</div>
+        <div class="status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Connecting...</span>
+            <span id="toolsCount"></span>
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="messages" id="messages">
+            <div class="welcome">
+                <div class="robot-icon">🤖</div>
+                <div>Connecting to Agent, please wait...</div>
+                <div class="quick-commands">
+                    <div class="quick-cmd" onclick="sendQuickCommand('Check system status')">Check system status</div>
+                    <div class="quick-cmd" onclick="sendQuickCommand('Setup planning scene')">Setup planning scene</div>
+                    <div class="quick-cmd" onclick="sendQuickCommand('Get current task state')">Get current task state</div>
+                    <div class="quick-cmd" onclick="sendQuickCommand('Pick the cup')">Pick the cup</div>
+                    <div class="quick-cmd" onclick="sendQuickCommand('Start pouring')">Start pouring</div>
+                    <div class="quick-cmd" onclick="sendQuickCommand('Return to home')">Return to home</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Type a command, e.g., 'Check system status' or 'Pick the cup'" disabled>
+            <button id="sendButton" onclick="sendMessage()" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let isConnected = false;
+        let isThinking = false;
+        
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const toolsCount = document.getElementById('toolsCount');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        
+        function connect() {
+            const wsUrl = `ws://${window.location.hostname}:8000/ws`;
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = () => {
+                console.log('WebSocket connection established');
+                setConnectionStatus(true);
+            };
+            
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+            
+            socket.onclose = () => {
+                console.log('WebSocket connection closed');
+                setConnectionStatus(false);
+                setTimeout(connect, 3000); // Reconnect after 3 seconds
+            };
+            
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                setConnectionStatus(false);
+            };
+        }
+        
+        function setConnectionStatus(connected) {
+            isConnected = connected;
+            statusDot.classList.toggle('connected', connected);
+            statusText.textContent = connected ? 'Connected' : 'Disconnected';
+            messageInput.disabled = !connected || isThinking;
+            sendButton.disabled = !connected || isThinking;
+        }
+        
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'status':
+                    if (data.agent_ready) {
+                        clearWelcome();
+                        statusText.textContent = 'System Ready';
+                    }
+                    toolsCount.textContent = `Tools: ${data.tools_count}`;
+                    break;
+                    
+                case 'agent_ready':
+                    clearWelcome();
+                    statusText.textContent = 'System Ready';
+                    toolsCount.textContent = `Tools: ${data.tools_count}`;
+                    addMessage('assistant', '🎉 System is ready! You can start chatting with the robot.');
+                    break;
+                    
+                case 'message':
+                    addMessage(data.message.role, data.message.content, data.message.timestamp);
+                    break;
+                    
+                case 'thinking':
+                    setThinking(data.thinking);
+                    break;
+                    
+                case 'chat_history':
+                    data.messages.forEach(msg => {
+                        addMessage(msg.role, msg.content, msg.timestamp);
+                    });
+                    break;
+                    
+                case 'execution_plan':
+                    addPlanMessage(data.message, data.steps, data.estimated_duration);
+                    break;
+                    
+                case 'step_starting':
+                    addStepMessage(data.message, data.details);
+                    break;
+            }
+        }
+        
+        function clearWelcome() {
+            const welcome = messages.querySelector('.welcome');
+            if (welcome) {
+                welcome.remove();
+            }
+        }
+        
+        function addMessage(role, content, timestamp) {
+            clearWelcome();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${role}`;
+            avatar.textContent = role === 'user' ? '👤' : '🤖';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            if (timestamp) {
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'timestamp';
+                timeDiv.textContent = new Date(timestamp).toLocaleTimeString();
+                contentDiv.appendChild(timeDiv);
+            }
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentDiv);
+            
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        function addPlanMessage(planText, steps, duration) {
+            clearWelcome();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant plan-message';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar assistant';
+            avatar.textContent = '📋';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content plan-content';
+            
+            const planTitle = document.createElement('div');
+            planTitle.style.fontWeight = 'bold';
+            planTitle.style.marginBottom = '8px';
+            planTitle.textContent = planText;
+            
+            const stepsList = document.createElement('ul');
+            stepsList.style.margin = '8px 0';
+            stepsList.style.paddingLeft = '20px';
+            steps.forEach(step => {
+                const li = document.createElement('li');
+                li.textContent = step;
+                li.style.marginBottom = '4px';
+                stepsList.appendChild(li);
+            });
+            
+            const durationDiv = document.createElement('div');
+            durationDiv.style.fontSize = '12px';
+            durationDiv.style.color = '#666';
+            durationDiv.style.marginTop = '8px';
+            durationDiv.textContent = `Estimated duration: ${duration}`;
+            
+            contentDiv.appendChild(planTitle);
+            contentDiv.appendChild(stepsList);
+            contentDiv.appendChild(durationDiv);
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentDiv);
+            
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        function addStepMessage(stepText, details) {
+            clearWelcome();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant step-message';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar assistant';
+            avatar.textContent = '⚙️';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content step-content';
+            contentDiv.style.background = '#e6f4ff';
+            contentDiv.style.border = '1px solid #91caff';
+            
+            const stepTitle = document.createElement('div');
+            stepTitle.style.fontWeight = '600';
+            stepTitle.textContent = stepText;
+            
+            if (details) {
+                const detailsDiv = document.createElement('div');
+                detailsDiv.style.fontSize = '12px';
+                detailsDiv.style.color = '#666';
+                detailsDiv.style.marginTop = '4px';
+                detailsDiv.textContent = details;
+                contentDiv.appendChild(stepTitle);
+                contentDiv.appendChild(detailsDiv);
+            } else {
+                contentDiv.appendChild(stepTitle);
+            }
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentDiv);
+            
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        function setThinking(thinking) {
+            isThinking = thinking;
+            messageInput.disabled = !isConnected || thinking;
+            sendButton.disabled = !isConnected || thinking;
+            
+            // Remove existing thinking indicator
+            const existingThinking = messages.querySelector('.thinking');
+            if (existingThinking) {
+                existingThinking.remove();
+            }
+            
+            if (thinking) {
+                const thinkingDiv = document.createElement('div');
+                thinkingDiv.className = 'thinking';
+                thinkingDiv.innerHTML = `
+                    <div class="avatar assistant">🤖</div>
+                    <div>Agent is thinking
+                        <div class="dots">
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                        </div>
+                    </div>
+                `;
+                messages.appendChild(thinkingDiv);
+                messages.scrollTop = messages.scrollHeight;
+            }
+        }
+        
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || !isConnected || isThinking) return;
+            
+            socket.send(JSON.stringify({
+                type: 'chat',
+                message: message
+            }));
+            
+            messageInput.value = '';
+        }
+        
+        function sendQuickCommand(command) {
+            if (!isConnected || isThinking) return;
+            
+            socket.send(JSON.stringify({
+                type: 'chat',
+                message: command
+            }));
+        }
+        
+        // Press Enter to send
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Initialize connection
+        connect();
+    </script>
+</body>
+</html> 

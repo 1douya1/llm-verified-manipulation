@@ -1,0 +1,22 @@
+# 通用MTC任务执行请求
+# task_type: 任务类型 ("pick", "pour", "place", "return")
+string task_type
+
+# 任务参数 (JSON格式字符串，便于传递复杂参数)
+string task_params_json
+
+# 通用选项
+bool plan_only false
+float64 timeout_sec 180.0
+
+---
+# 执行结果
+bool success
+string error_msg
+float64 duration_sec
+
+---
+# 执行反馈
+string stage
+float32 progress
+string current_status 

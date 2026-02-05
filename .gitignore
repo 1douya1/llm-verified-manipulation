@@ -1,0 +1,117 @@
+# ROS2 Build Artifacts (CRITICAL - Never commit these)
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+*.egg
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.pydevproject
+*.code-workspace
+
+# Environment Variables and Secrets (CRITICAL - Never commit these)
+.env
+*.env
+.env.local
+.env.*.local
+*_credentials.json
+*_secrets.yaml
+*.pem
+*.key
+
+# Logs and Debugging
+*.log
+*.out
+*.err
+*.stacktrace
+core.*
+
+# Test artifacts
+*.test
+*.launch.test
+test_results/
+*.coverage
+.pytest_cache/
+
+# Compiled Binary Files
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+*.dll
+
+# System Files
+.DS_Store
+Thumbs.db
+*.bak
+*~
+
+# ROS Specific
+*.autosave
+COLCON_IGNORE
+.colcon/
+
+# Large Binary Data (IMPORTANT - Keep repo size small)
+# Training data and models
+agent/detector/
+*.jpg
+*.png
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.bag
+*.db3
+recordings/
+datasets/
+models/*.pth
+models/*.pt
+models/*.onnx
+models/*.pb
+*.weights
+
+# Calibration Data (Hardware-specific)
+**/calibration_results/
+**/hand_eye_calibration.yaml
+**/camera_intrinsics.yaml
+recorded_poses.yaml
+
+# Temporary Files
+*.tmp
+*.temp
+*.cache
+.cache/
+
+# Documentation Build Artifacts
+docs/_build/
+docs/.doctrees/
+
+# Backup Files
+*.backup
+*.old
+*_backup

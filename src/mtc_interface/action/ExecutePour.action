@@ -1,0 +1,22 @@
+# Goal
+string target_id               # 目标对象/位姿标识，占位；暂不必使用
+float32 tilt_start_deg         # 起始角，例如 45
+float32 tilt_end_deg           # 终止角，例如 120
+float32 tilt_speed_deg_s       # 倾倒角速度（度/秒）
+float32 pour_hold_sec          # 倾倒保持时间（秒）
+float32 lift_height            # 抓起后向上抬升的距离（米）
+float32 approach_min           # 预接近最小距离（米）
+float32 approach_max           # 预接近最大距离（米）
+bool    plan_only              # 仅规划不执行
+
+---
+# Result
+bool   success
+string error_msg
+float32 duration_sec
+
+---
+# Feedback
+string  stage                  # pick/move/tilt/return/place 等
+float32 progress               # 0~1
+float32 current_tilt_deg       # 当前关节角（度）

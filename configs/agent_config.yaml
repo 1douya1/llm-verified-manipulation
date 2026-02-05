@@ -1,0 +1,76 @@
+# AI Agent Configuration
+# This file contains configuration parameters for the robot control agent
+
+agent:
+  # LLM Model Configuration
+  model:
+    provider: "anthropic"  # anthropic, openai, etc.
+    name: "claude-sonnet-4-20250514"  # Model version
+    temperature: 0.1  # Lower = more deterministic
+    max_tokens: 4096  # Max response length
+  
+  # Scene Manager Configuration
+  scene:
+    detection_topic: "/object_detection_result"
+    update_rate_hz: 10  # How often to check for updates
+    timeout_sec: 5.0  # Detection timeout
+  
+  # Action Configuration
+  actions:
+    # Default parameters for all actions
+    defaults:
+      velocity_scaling: 0.15  # Robot speed (0.0-1.0)
+      acceleration_scaling: 0.15  # Robot acceleration (0.0-1.0)
+      timeout_sec: 60.0  # Action timeout
+    
+    # Pick action parameters
+    pick:
+      approach_min: 0.05  # Min approach distance (m)
+      approach_max: 0.15  # Max approach distance (m)
+      lift_height: 0.12  # Lift height after grasp (m)
+      grasp_frame_transform: "0 0 0.22 0 0 0"  # x y z r p y
+    
+    # Place action parameters
+    place:
+      place_surface_offset: 0.0  # Height above surface (m)
+      retreat_min: 0.05  # Min retreat distance (m)
+      retreat_max: 0.15  # Max retreat distance (m)
+    
+    # Pour action parameters
+    pour:
+      tilt_start_deg: 15.0  # Start tilt angle
+      tilt_end_deg: 140.0  # End tilt angle
+      tilt_speed_deg_s: 25.0  # Tilt speed (deg/s)
+      pour_hold_sec: 2.0  # Hold time at max tilt (s)
+      velocity_scaling: 0.05  # Slow for pouring
+  
+  # Safety Configuration
+  safety:
+    max_execution_time: 180.0  # Max time for any action (s)
+    enable_collision_checking: true
+    emergency_stop_enabled: true
+
+# ROS2 Configuration
+ros2:
+  # Node names
+  nodes:
+    scene_manager: "scene_manager_node"
+  
+  # QoS Settings
+  qos:
+    reliability: "best_effort"  # reliable, best_effort
+    durability: "volatile"  # volatile, transient_local
+    depth: 1
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/agent.log"  # Optional log file
+
+# Feature Flags
+features:
+  enable_web_interface: false  # FastAPI web interface
+  enable_speech: false  # Text-to-speech responses
+  enable_vision: false  # Direct camera feed to LLM
+  dry_run_mode: false  # Test without robot

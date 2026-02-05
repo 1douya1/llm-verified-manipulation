@@ -1,0 +1,83 @@
+RSS_Workshop/
+├── agent/                          # AI Agent Module (24 Python files)
+│   ├── agent_app.py               # ⭐ Main agent application
+│   ├── action_tools.py            # ⭐ Robot action LangChain tools
+│   ├── scene_manager.py           # ⭐ ROS2 scene state manager
+│   ├── task_graph.py              # ⭐ Task execution graphs
+│   ├── simple_backend.py          # Optional FastAPI backend
+│   ├── simple_frontend.html       # Optional web UI
+│   ├── simple_requirements.txt    # Python dependencies
+│   ├── start_agent.sh             # Agent launcher script
+│   ├── start_simple.sh            # Web UI launcher
+│   ├── __init__.py                # Python package init
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   └── transforms.py          # Coordinate transforms
+│   ├── .gitignore                 # Agent-specific ignores
+│   └── [8 documentation MD files]
+│
+├── src/                           # ROS2 Packages
+│   ├── mtc_interface/            # Message & Action Definitions
+│   │   ├── action/
+│   │   │   ├── ExecutePour.action      # Pour task action
+│   │   │   └── ExecuteTask.action      # Generic task action
+│   │   ├── msg/
+│   │   │   ├── DetectedObject.msg      # Single object info
+│   │   │   └── DetectionResult.msg     # Scene detection
+│   │   ├── CMakeLists.txt
+│   │   └── package.xml
+│   │
+│   └── mtc_tutorial/             # MTC Task Builders
+│       ├── src/                  # C++ Sources (7 files)
+│       │   ├── execute_pour_server.cpp        # ⭐ Pour action server
+│       │   ├── execute_task_server.cpp        # ⭐ Task action server
+│       │   ├── modular_task_server.cpp        # ⭐ Modular task server
+│       │   ├── modular_task_builders.cpp      # ⭐ Task implementations
+│       │   ├── pour_task_builder.cpp          # Pour task logic
+│       │   ├── mtc_tutorial.cpp               # Basic tutorial
+│       │   └── mtc_agent_tools_node.cpp       # Agent integration
+│       ├── include/mtc_tutorial/  # Headers (2 files)
+│       │   ├── modular_task_builders.hpp
+│       │   └── pour_task_builder.hpp
+│       ├── scripts/               # Python Scripts (11 files)
+│       │   ├── mtc_mcp_server.py             # ⭐ MCP server (reference)
+│       │   ├── ros_client_tools.py           # ⭐ ROS2 client tools
+│       │   ├── detection_to_planning_scene.py # Detection bridge
+│       │   ├── object_single_shot_detection.py # Object detection
+│       │   ├── charuco_pose_publisher.py      # Calibration board
+│       │   ├── pointcloud_geometry_fitter.py  # 3D fitting
+│       │   ├── pour_client.py                 # Pour client
+│       │   ├── object_florence_visual_detection.py
+│       │   ├── object_marker_publisher.py
+│       │   ├── run_mtc_mcp_fixed.sh
+│       │   └── __init__.py
+│       ├── launch/                # Launch Files (5 files)
+│       │   ├── detection_only.launch.py
+│       │   ├── modular_task_server.launch.py
+│       │   ├── pick_place_demo.launch.py
+│       │   ├── pour_demo.launch.py
+│       │   └── florence_visual_detection.launch.py
+│       ├── CMakeLists.txt
+│       └── package.xml
+│
+├── docs/                          # Documentation (5 core + 1 summary)
+│   ├── ARCHITECTURE.md           # ⭐ System architecture
+│   ├── QUICK_START.md            # ⭐ 5-minute setup guide
+│   ├── API_REFERENCE.md          # ⭐ API documentation
+│   ├── EXCLUDED_COMPONENTS.md    # What's not included
+│   └── [1 more]
+│
+├── scripts/                       # Utility Scripts
+│   └── run_demo.sh               # ⭐ One-command demo launcher
+│
+├── configs/                       # Configuration Files
+│   └── agent_config.yaml         # Agent parameters
+│
+├── .gitignore                    # ⭐ Git ignore rules
+├── LICENSE                       # ⭐ MIT License
+├── README.md                     # ⭐ Main introduction
+├── BUILD_COMMANDS.md             # ⭐ Build instructions
+└── REPOSITORY_SUMMARY.md         # ⭐ This creation summary
+
+Legend:
+⭐ = Essential/Core file
