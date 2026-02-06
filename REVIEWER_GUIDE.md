@@ -50,20 +50,6 @@ source install/setup.bash
 - ✅ MTC task interfaces are properly defined
 - ✅ Planning infrastructure is in place
 
----
-
-## What Reviewers Should NOT Do
-
-❌ **Do NOT attempt full hardware reproduction**
-- Requires specific robot (UFACTORY UF850)
-- Requires camera setup and calibration
-- Requires trained object detection models
-- Not expected or required for review
-
-❌ **Do NOT expect plug-and-play execution**
-- This is a reference implementation
-- Hardware setups vary significantly
-- Calibration is system-specific
 
 ---
 
@@ -182,10 +168,10 @@ git clone https://github.com/xArm-Developer/xarm_ros2.git
 See [docs/EXCLUDED_COMPONENTS.md](docs/EXCLUDED_COMPONENTS.md) for complete details.
 
 **Summary**:
-1. ❌ **Hardware calibration data** - System-specific
-2. ❌ **Object detection models** - Large files, training-specific
-3. ❌ **External packages** (xarm_ros2, etc.) - Better maintained upstream
-4. ❌ **Deployment infrastructure** - Production-specific
+1.  **Hardware calibration data** - System-specific
+2.  **Object detection models** - Large files, training-specific
+3.  **External packages** (xarm_ros2, etc.) - Better maintained upstream
+4.  **Deployment infrastructure** - Production-specific
 
 ---
 
@@ -294,7 +280,6 @@ If you encounter issues:
 - ✅ Run Plan-Only mode (~10 minutes)
 - ✅ Read architecture docs (~10 minutes)
 - ✅ Examine core code (~10 minutes)
-- ❌ Do NOT attempt full hardware reproduction
 
 **Core contribution**: MTC-based hierarchical task planning with LLM interface
 
