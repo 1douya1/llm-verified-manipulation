@@ -1,6 +1,6 @@
 # Bridging Semantics and Physics with Constrained Multimodal LLMs for Safe Robotic Pouring
 
-**Supplementary Repository for RSS 2025 Conference**
+**Supplementary Repository for RSS 2026 Conference**
 
 ## 📌 Purpose of This Repository
 
