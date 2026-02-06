@@ -139,7 +139,7 @@ python3 agent_app.py
 | **Anthropic API key** | ⚠️ Optional** | ⚠️ Optional** | ✅ Required |
 | **Planning verification** | ✅ Yes | ✅ Yes | ✅ Yes |
 | **Motion execution** | ❌ No | ⚠️ Simulated | ✅ Real |
-| **Reviewer-friendly** | ✅ YES | ⚠️ Maybe | ❌ NO |
+| **Reviewer-friendly** | ✅ YES | ✅ Yes | ❌ NO |
 
 \* xarm_ros2 only needed if you want to verify URDF/SRDF loading  
 \*\* API key optional if testing without LLM agent
@@ -148,7 +148,7 @@ python3 agent_app.py
 
 ## Recommended for RSS Reviewers
 
-**We recommend Mode 1 (Plan-Only / Dry-Run)** because:
+**We recommend Mode 1 (Plan-Only / Execute-Run)** because:
 
 1. ✅ Minimal dependencies
 2. ✅ No hardware required
