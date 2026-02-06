@@ -9,7 +9,7 @@ This is a **reference implementation** and **transparency artifact** accompanyin
 1. ✅ **Architecture transparency**: Clear view of system components and data flow
 2. ✅ **Planning verification**: Runnable task planning pipeline (no hardware required)
 3. ✅ **Code reference**: Documented implementation of MTC-based manipulation
-4. ❌ **NOT a full reproduction**: Hardware experiments require specific robot setup and calibration
+4. ⚠️ **NOT a full reproduction**: Hardware experiments require specific robot setup and calibration
 
 **Default Execution Mode**: **Plan-Only / Dry-Run** (recommended for reviewers)
 
