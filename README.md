@@ -1,4 +1,4 @@
-# RSS Workshop - AI-Driven Robot Manipulation System
+# RSS Supplement Material - Bridging Semantics and Physics with Constrained Multimodal LLMs for Safe Robotic Pouring
 
 **Supplementary Repository for RSS 2025 Conference**
 
@@ -434,6 +434,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Maintainer**: Your Name <your.email@example.com>  
+**Maintainer**: Wenhao Hong <977352965@qq.com>  
 **Last Updated**: February 2025  
-**Version**: 1.0.0
+**Version**: 1.1.0
