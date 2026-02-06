@@ -5,17 +5,17 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        # 启动模块化MTC任务服务器
+        # Launch modular MTC task server
         Node(
             package='mtc_tutorial',
             executable='modular_task_server',
             name='modular_task_server',
             output='screen',
             parameters=[
-                {'task_type': 'pick'}  # 默认任务类型
+                {'task_type': 'pick'}  # Default task type
             ],
             remappings=[
-                # 可以在这里添加话题重映射如果需要的话
+                # Can add topic remappings here if needed
             ]
         ),
     ]) 

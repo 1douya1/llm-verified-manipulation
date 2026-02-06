@@ -115,3 +115,13 @@ docs/.doctrees/
 *.backup
 *.old
 *_backup
+
+# ROS2 workspace artifacts
+build/
+install/
+log/
+__pycache__/
+*.pyc
+
+# External deps (do not vendor)
+xarm_ros2/

@@ -4,13 +4,13 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-# 确保可以导入同目录下的工具脚本
+# Ensure we can import tool scripts from the same directory
 _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.append(str(_THIS_DIR))
 
 try:
-    # 需要安装：pip install "mcp[stdio]"
+    # Installation required: pip install "mcp[stdio]"
     from mcp.server.fastmcp import FastMCP
 except Exception as e:
     sys.stderr.write("[mtc_mcp_server] Missing MCP SDK. Please install: pip install 'mcp[stdio]'\n")
@@ -96,19 +96,19 @@ server = FastMCP("mtc_mcp_server")
 
 @server.tool()
 async def set_cup_pose(x: float, y: float, z: float, qx: Optional[float] = None, qy: Optional[float] = None, qz: Optional[float] = None, qw: Optional[float] = None, valid: bool = True,server_node: str = '/execute_pour_server',timeout_sec: float = 5.0) -> Dict[str, Any]:
-    """设置杯子的位姿参数"""
+    """Set cup pose parameters"""
     ok = tools.set_cup_pose(x, y, z, qx=qx, qy=qy, qz=qz, qw=qw, valid=valid,server_node=server_node, timeout_sec=timeout_sec)
     return {"ok": bool(ok)}
 
 
 @server.tool()
 async def set_gripper_close_ratio(ratio: float,server_node: str = '/execute_pour_server',timeout_sec: float = 5.0) -> Dict[str, Any]:
-    """设置夹爪闭合比例 (0.0-1.0)"""
+    """Set gripper closing ratio (0.0-1.0)"""
     ok = tools.set_gripper_close_ratio(ratio, server_node=server_node, timeout_sec=timeout_sec)
     return {"ok": bool(ok)}
 
 
-# =============== 场景构建和管理工具 ===============
+# =============== Scene Building and Management Tools ===============
 
 @server.tool()
 async def setup_planning_scene(
@@ -141,29 +141,29 @@ async def setup_planning_scene(
         cup_x=cup_x, cup_y=cup_y, cup_z=cup_z,
         cup_qx=cup_qx, cup_qy=cup_qy, cup_qz=cup_qz, cup_qw=cup_qw,
         cup_height=cup_height, cup_radius=cup_radius,
-        add_no_go_wall=add_no_go_wall,  # 传递参数
+        add_no_go_wall=add_no_go_wall,  # Pass parameter
     )
 
 
 @server.tool()
 async def check_object_exists(object_id: str = "object", timeout_sec: float = 5.0) -> Dict[str, Any]:
-    """检查指定的碰撞对象是否存在于规划场景中
+    """Check if specified collision object exists in planning scene
 
     Args:
-        object_id: 要检查的对象ID（默认"object"，即杯子）
-        timeout_sec: 超时时间
+        object_id: Object ID to check (default "object", i.e., cup)
+        timeout_sec: Timeout duration
     
     Returns:
-        详细的对象存在状态，包括：
-        - ok: 是否成功执行检查
-        - status: 检查状态
-        - object_exists: 对象是否存在（布尔值）
-        - object_id: 被检查的对象ID
-        - known_objects: 场景中所有已知对象的列表
-        - msg: 详细消息
+        Detailed object existence status including:
+        - ok: Whether check executed successfully
+        - status: Check status
+        - object_exists: Whether object exists (boolean)
+        - object_id: Object ID checked
+        - known_objects: List of all known objects in scene
+        - msg: Detailed message
     
-    这个工具在execute_pour执行前用于验证cup对象是否正确加载，
-    确保任务有正确的目标对象可以操作。
+    This tool is used before execute_pour to verify cup object is loaded correctly,
+    ensuring task has correct target object to operate on.
     """
     return tools.check_object_exists(object_id=object_id, timeout_sec=timeout_sec)
 
@@ -174,26 +174,26 @@ async def update_cup_pose(cup_x: float, cup_y: float, cup_z: float,
                           cup_qz: Optional[float] = None, cup_qw: Optional[float] = 1.0,
                           cup_height: float = 0.1, cup_radius: float = 0.02,
                           timeout_sec: float = 5.0) -> Dict[str, Any]:
-    """动态更新杯子对象的位姿（无需重建整个场景）
+    """Dynamically update cup object pose (without rebuilding entire scene)
 
     Args:
-        cup_x, cup_y, cup_z: 新的杯子位置坐标
-        cup_qx, cup_qy, cup_qz, cup_qw: 新的杯子方向四元数（可选）
-        cup_height: 杯子高度（米）
-        cup_radius: 杯子半径（米）
-        timeout_sec: 超时时间
+        cup_x, cup_y, cup_z: New cup position coordinates
+        cup_qx, cup_qy, cup_qz, cup_qw: New cup orientation quaternion (optional)
+        cup_height: Cup height (meters)
+        cup_radius: Cup radius (meters)
+        timeout_sec: Timeout duration
 
     Returns:
-        更新结果，包括：
-        - ok: 是否成功
-        - status: 更新状态
-        - cup_position/orientation: 新的杯子位姿
-        - msg: 详细消息
+        Update result including:
+        - ok: Whether successful
+        - status: Update status
+        - cup_position/orientation: New cup pose
+        - msg: Detailed message
 
-    这个工具允许在不重建整个场景的情况下更新杯子位置，
-    比setup_planning_scene更高效，适用于杯子位置微调。
+    This tool allows updating cup position without rebuilding entire scene,
+    more efficient than setup_planning_scene, suitable for cup position fine-tuning.
 
-    注意:杯子对象必须已存在(通过setup_planning_scene创建)。
+    Note: Cup object must already exist (created via setup_planning_scene).
     """
     return tools.update_cup_pose(
         cup_x=cup_x, cup_y=cup_y, cup_z=cup_z,

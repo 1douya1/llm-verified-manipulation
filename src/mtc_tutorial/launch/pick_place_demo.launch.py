@@ -4,10 +4,10 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
-    # 声明参数
+    # Declare parameters
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
     
-    # 声明launch参数
+    # Declare launch argument
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
         default_value='true',
@@ -15,8 +15,8 @@ def generate_launch_description():
     )
     
     # MTC Demo node
-    # 注意：这个节点会从已经运行的move_group获取所有必要的参数
-    # 不需要在这里重复声明URDF/SRDF等参数
+    # Note: this node gets all necessary parameters from already-running move_group
+    # No need to redeclare URDF/SRDF parameters here
     pick_place_demo = Node(
         package="mtc_tutorial",
         executable="mtc_tutorial",
@@ -24,11 +24,11 @@ def generate_launch_description():
         parameters=[
             {'use_sim_time': use_sim_time},
         ],
-        # 确保节点名称与C++代码中的名称一致
+        # Ensure node name matches name in C++ code
         name='mtc_tutorial_node',
-        # 在根命名空间运行，确保能找到move_group
+        # Run in root namespace to ensure move_group can be found
         namespace='',
-        # 重映射以确保正确的话题连接
+        # Remappings to ensure correct topic connections
         remappings=[
             ('/tf', 'tf'),
             ('/tf_static', 'tf_static'),

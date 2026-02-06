@@ -9,14 +9,14 @@ objects:
   - id: table
     type: box
     dimensions: [0.6, 0.8, 0.02]        # x, y, z extents
-    position:   [0.0, -0.40, 0.01]       # centre of the box
+    position:   [0.0, -0.40, -0.03]       # centre of the box (lowered to avoid link_base collision)
     orientation: [0.0, 0.0, 0.0, 1.0]    # qx, qy, qz, qw
     color:      [0.55, 0.35, 0.18, 0.8]  # RGBA (wood brown)
 
   # Source container (cup) - MTC "object" target for pick
   - id: object
     type: cylinder
-    dimensions: [0.035, 0.10]            # radius, height
+    dimensions: [0.025, 0.10]            # radius, height
     position:   [0.0, -0.40, 0.07]
     orientation: [0.0, 0.0, 0.0, 1.0]
     color:      [0.2, 0.6, 0.9, 1.0]    # blue

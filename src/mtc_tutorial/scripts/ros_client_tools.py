@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict, Optional, List, Union
 from pathlib import Path
 
-# 确保可以导入同目录下的 pour_tool.py
+# Ensure we can import pour_tool.py from the same directory
 _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.append(str(_THIS_DIR))
@@ -14,24 +14,24 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 
 try:
-    # rclpy 0.10+ 提供 AsyncParametersClient
+    # rclpy 0.10+ provides AsyncParametersClient
     from rclpy.parameter_client import AsyncParametersClient  # type: ignore
 except Exception:
     AsyncParametersClient = None  # type: ignore
 
-# =============== 模块级环境初始化 ===============
+# =============== Module-level Environment Initialization ===============
 def _setup_ros_environment():
-    """一次性设置ROS环境，避免重复计算"""
+    """One-time ROS environment setup to avoid repeated computation"""
     workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     install_path = os.path.join(workspace_root, "install")
     
     if os.path.exists(install_path):
-        # 设置Python路径
+        # Set Python path
         python_path = os.path.join(install_path, "mtc_interface", "local", "lib", "python3.10", "dist-packages")
         if os.path.exists(python_path) and python_path not in sys.path:
             sys.path.insert(0, python_path)
         
-        # 设置ROS环境变量
+        # Set ROS environment variables
         if "AMENT_PREFIX_PATH" not in os.environ:
             os.environ["AMENT_PREFIX_PATH"] = install_path
         elif install_path not in os.environ["AMENT_PREFIX_PATH"]:
@@ -39,10 +39,10 @@ def _setup_ros_environment():
     
     return install_path
 
-# 模块加载时执行一次环境设置
+# Execute environment setup once at module load time
 _ROS_INSTALL_PATH = _setup_ros_environment()
 
-# 生成唯一节点名，避免多个同名节点导致rosout重复注册告警
+# Generate unique node name to avoid duplicate rosout registration warnings
 def _unique_node_name(base: str) -> str:
     try:
         import os, time
@@ -50,10 +50,10 @@ def _unique_node_name(base: str) -> str:
     except Exception:
         return f"{base}_uniq"
 
-# =============== 标准化错误处理 ===============
+# =============== Standardized Error Handling ===============
 def _create_error_result(task_name: str, error_msg: str, params: Dict[str, Any] = None, 
                         status: str = "error") -> Dict[str, Any]:
-    """创建标准化的错误返回结果"""
+    """Create standardized error result"""
     return {
         "ok": False,
         "success": False,
@@ -66,7 +66,7 @@ def _create_error_result(task_name: str, error_msg: str, params: Dict[str, Any] 
 
 def _create_success_result(task_name: str, duration_sec: float = 0.0, 
                           params: Dict[str, Any] = None, **extra_fields) -> Dict[str, Any]:
-    """创建标准化的成功返回结果"""
+    """Create standardized success result"""
     result = {
         "ok": True,
         "success": True,
@@ -94,7 +94,7 @@ def _shutdown_rclpy_if(created: bool) -> None:
 
 
 def _set_params(remote_node_name: str, params: Dict[str, Any], timeout_sec: float = 5.0) -> bool:
-    # 优先使用 AsyncParametersClient
+    # Prefer using AsyncParametersClient
     if AsyncParametersClient is not None:
         created = _ensure_rclpy_inited()
         node = rclpy.create_node(_unique_node_name('mtc_mcp_param_setter'))
@@ -122,7 +122,7 @@ def _set_params(remote_node_name: str, params: Dict[str, Any], timeout_sec: floa
             node.destroy_node()
             _shutdown_rclpy_if(created)
 
-    # 回退：直接调用 /set_parameters 服务
+    # Fallback: directly call /set_parameters service
     from rcl_interfaces.srv import SetParameters
     created = _ensure_rclpy_inited()
     node = rclpy.create_node(_unique_node_name('mtc_mcp_param_setter_srv'))
@@ -151,9 +151,9 @@ def _set_params(remote_node_name: str, params: Dict[str, Any], timeout_sec: floa
         _shutdown_rclpy_if(created)
 
 
-# =============== 对外工具：执行倒水 ===============
+# =============== Public Tools: Execute Pour ===============
 
-# 倾倒任务默认参数
+# Pour task default parameters
 POUR_DEFAULTS: Dict[str, Any] = dict(
     tilt_start_deg=45.0,
     tilt_end_deg=120.0,
@@ -176,7 +176,7 @@ POUR_DEFAULTS: Dict[str, Any] = dict(
 )
 
 def _validate_pour_params(params: Dict[str, Any]) -> Dict[str, Any]:
-    """验证倾倒参数"""
+    """Validate pour parameters"""
     p = {**POUR_DEFAULTS, **params}
     if p["approach_min"] <= 0 or p["approach_max"] <= 0:
         raise ValueError("approach_min/max must be > 0")
@@ -192,36 +192,36 @@ def _validate_pour_params(params: Dict[str, Any]) -> Dict[str, Any]:
 
 def execute_pour(params: Dict[str, Any], action_name: str = 'execute_pour', timeout_sec: float = 180.0,
                   cancel_after: Optional[float] = None) -> Dict[str, Any]:
-    """执行一次倒水动作。
-    params 字段与 POUR_DEFAULTS 一致，可额外传递 target_id、plan_only 等。
-    新增支持 cup_x/y/z, cup_qx/qy/qz/qw 直接设置杯子位姿。
-    返回字典包含 ok/status/success/error/duration_sec/params。
+    """Execute a single pour action.
+    params fields match POUR_DEFAULTS, with optional target_id, plan_only, etc.
+    New: supports cup_x/y/z, cup_qx/qy/qz/qw for direct cup pose setting.
+    Returns dict with ok/status/success/error/duration_sec/params.
     """
     created = _ensure_rclpy_inited()
     node = rclpy.create_node(_unique_node_name('pour_client'))
     
     try:
-        # 环境变量已在模块级别设置，无需重复设置
+        # Environment variables already set at module level, no need to reset
         
-        # 导入所需的消息类型
+        # Import required message types
         from rclpy.action import ActionClient
         import mtc_interface.action
         import time
         
-        # 验证参数
+        # Validate parameters
         p = _validate_pour_params(params)
         
-        # 重构：检查杯子对象是否存在于规划场景中
+        # Refactored: check if cup object exists in planning scene
         object_check = check_object_exists(object_id="object_1", timeout_sec=3.0)
         if not object_check["ok"] or not object_check["object_exists"]:
             node.get_logger().error("Cup object 'object_1' not found in planning scene!")
-            return _create_error_result("倾倒任务", 
+            return _create_error_result("pour_task", 
                                        "Cup object not found in planning scene. Please run setup_planning_scene first.",
                                        p, "missing_object")
         
         node.get_logger().info("Cup object found in planning scene, proceeding with pour task")
         
-        # 可选功能：如果提供了杯子位姿参数，先更新杯子位姿（而非通过参数设置）
+        # Optional: if cup pose parameters provided, update cup pose first (instead of via parameters)
         cup_pose_updated = False
         if p.get('update_cup_pose_first', False):
             cup_x = p.get('cup_x')
@@ -246,15 +246,15 @@ def execute_pour(params: Dict[str, Any], action_name: str = 'execute_pour', time
                     cup_pose_updated = True
                 else:
                     node.get_logger().warn(f"Failed to update cup pose: {update_result.get('error', 'Unknown error')}")
-                    # 继续执行，使用现有位姿
+                    # Continue execution with existing pose
                 
-                # 等待一下确保位姿更新生效
+                # Wait briefly to ensure pose update takes effect
                 time.sleep(0.3)
         
-        # 创建 Action 客户端
+        # Create Action client
         action_client = ActionClient(node, mtc_interface.action.ExecutePour, action_name)
         
-        # 构建 Goal
+        # Build Goal
         goal = mtc_interface.action.ExecutePour.Goal()
         goal.target_id = p.get('target_id', '')
         goal.tilt_start_deg = float(p['tilt_start_deg'])
@@ -272,11 +272,11 @@ def execute_pour(params: Dict[str, Any], action_name: str = 'execute_pour', time
             f"approach[{goal.approach_min}, {goal.approach_max}], plan_only={goal.plan_only}, "
             f"cup_pose_updated={cup_pose_updated}")
         
-        # 等待服务器
+        # Wait for server
         if not action_client.wait_for_server(timeout_sec=5.0):
             return {"ok": False, "status": "no_server", "msg": f"Action server {action_name} not available"}
         
-        # 发送目标
+        # Send goal
         def feedback_callback(msg):
             fb = msg.feedback
             node.get_logger().info(f"[{fb.stage}] progress={fb.progress:.2f}, tilt={fb.current_tilt_deg:.1f}")
@@ -291,7 +291,7 @@ def execute_pour(params: Dict[str, Any], action_name: str = 'execute_pour', time
         node.get_logger().info('Goal accepted')
         start = time.time()
         
-        # 可选的定时取消
+        # Optional timed cancellation
         if cancel_after is not None and cancel_after > 0:
             import threading
             def _schedule_cancel():
@@ -300,7 +300,7 @@ def execute_pour(params: Dict[str, Any], action_name: str = 'execute_pour', time
                 gh.cancel_goal_async()
             threading.Thread(target=_schedule_cancel, daemon=True).start()
         
-        # 等待结果
+        # Wait for result
         res_future = gh.get_result_async()
         while not res_future.done():
             if timeout_sec and time.time() - start > timeout_sec:
@@ -312,7 +312,7 @@ def execute_pour(params: Dict[str, Any], action_name: str = 'execute_pour', time
         if not res_future.done():
             return {"ok": False, "status": "timeout", "msg": f"Timeout {timeout_sec}s", "params": p}
         
-        # 处理结果
+        # Process result
         result_msg = res_future.result()
         res = result_msg.result
         status = result_msg.status  # 4 SUCCEEDED, 5 CANCELED, 6 ABORTED
@@ -329,7 +329,7 @@ def execute_pour(params: Dict[str, Any], action_name: str = 'execute_pour', time
         }
         
     except Exception as e:
-        return _create_error_result("倾倒任务", f"Pour execution failed: {str(e)}")
+        return _create_error_result("pour_task", f"Pour execution failed: {str(e)}")
     
     finally:
         node.destroy_node()
@@ -371,48 +371,48 @@ def setup_planning_scene(
                          wall_z_min: float = 0.00, wall_z_max: float = 0.60,
                          wall_alpha: float = 0.02,
                          ) -> Dict[str, Any]:
-    """设置规划场景：基于检测结果创建多个物体对象。
+    """Setup planning scene: create multiple object primitives based on detection results.
     
-    优先使用 detection_result（来自 object_single_shot_detection.py 发布的 DetectionResult）。
-    支持创建的物体类型：
-      - cup: 杯子（默认尺寸：height=0.1m, radius=0.02m）
-      - bowl: 碗（默认尺寸：height=0.07m, radius=0.04m）
-      - bottle: 瓶子（默认尺寸：height=0.15m, radius=0.025m）
+    Prefers detection_result (from object_single_shot_detection.py DetectionResult messages).
+    Supported object types:
+      - cup: Cup (default dimensions: height=0.1m, radius=0.02m)
+      - bowl: Bowl (default dimensions: height=0.07m, radius=0.04m)
+      - bottle: Bottle (default dimensions: height=0.15m, radius=0.025m)
     
-    生成的物体：
-      - ID：统一命名为 id_prefix_1, id_prefix_2, id_prefix_3 ...（例如：object_1, object_2）
-      - 位姿：position(x,y,z) 来自检测消息；orientation 统一为 (0,0,0,1)
-      - 尺寸：使用对应物体类型的默认尺寸，满足 MoveIt 需求
+    Generated objects:
+      - ID: Uniformly named as id_prefix_1, id_prefix_2, id_prefix_3 ... (e.g., object_1, object_2)
+      - Pose: position(x,y,z) from detection message; orientation unified as (0,0,0,1)
+      - Dimensions: Use default dimensions for corresponding object type to meet MoveIt requirements
     
     Args:
-        detection_result: DetectionResult 消息对象（推荐）
-        only_cup: 是否仅根据 class_name=='cup' 生成对象（False时支持cup/bowl/bottle）
-        id_prefix: 生成对象ID前缀
-        timeout_sec: 等待规划场景服务超时
-        detected_objects: 向后兼容的旧输入（DetectionResult/DetectedObject列表/字典列表）
-        include_cup/cup_x/...: 仅在没有检测输入时用于回退生成一个默认杯子
-        include_bowl/bowl_*: bowl物体的生成控制和尺寸参数
-        include_bottle/bottle_*: bottle物体的生成控制和尺寸参数
+        detection_result: DetectionResult message object (recommended)
+        only_cup: Whether to only generate objects where class_name=='cup' (False supports cup/bowl/bottle)
+        id_prefix: Generated object ID prefix
+        timeout_sec: Wait for planning scene service timeout
+        detected_objects: Backward compatible old input (DetectionResult/DetectedObject list/dict list)
+        include_cup/cup_x/...: Only used for fallback to generate default cup when no detection input
+        include_bowl/bowl_*: Bowl object generation control and dimension parameters
+        include_bottle/bottle_*: Bottle object generation control and dimension parameters
     
     Returns:
-        包含场景设置结果的字典
+        Dict containing scene setup result
     """
     created = _ensure_rclpy_inited()
     import rclpy
     node = rclpy.create_node(_unique_node_name('planning_scene_setup'))
     
     try:
-        # 导入必要的消息类型
+        # Import必要的消息类型
         from moveit_msgs.msg import CollisionObject, PlanningScene, ObjectColor
         from moveit_msgs.srv import ApplyPlanningScene
         from shape_msgs.msg import SolidPrimitive
         from geometry_msgs.msg import Pose
         import time
         
-        # 使用ApplyPlanningScene服务，更好地模拟原始的PlanningSceneInterface
+        # UseApplyPlanningScene服务，更好地模拟原始的PlanningSceneInterface
         apply_scene_client = node.create_client(ApplyPlanningScene, '/apply_planning_scene')
         
-        # 等待服务可用
+        # Wait for服务可用
         if not apply_scene_client.wait_for_service(timeout_sec=timeout_sec):
             node.get_logger().warn("ApplyPlanningScene service not available, falling back to topic publishing")
             # 备用方案：使用topic发布
@@ -516,7 +516,7 @@ def setup_planning_scene(
                     
                     specs.append({
                         "id": obj_id,
-                        "class_name": cls,  # 添加类别信息
+                        "class_name": cls,  # Add类别信息
                         "x": float(getattr(pos, 'x', 0.0)),
                         "y": float(getattr(pos, 'y', 0.0)),
                         "z": float(getattr(pos, 'z', 0.0)),
@@ -653,7 +653,7 @@ def setup_planning_scene(
             # 旧输入无法区分类别，保持仅杯子
         
         if not cup_specs and include_cup:
-            # 回退：添加一个默认杯子
+            # Fallback：添加一个默认杯子
             cup_specs = [{
                 "id": f"{id_prefix}_1",  # 统一命名
                 "class_name": "cup",
@@ -661,7 +661,7 @@ def setup_planning_scene(
             }]
         # bowl 和 bottle 无默认回退，依赖检测
         
-        # 生成杯子碰撞对象（使用拟合的真实尺寸和姿态）
+        # Generate杯子碰撞对象（使用拟合的真实尺寸和姿态）
         for spec in cup_specs:
             cup_object = CollisionObject()
             cup_object.header.stamp = node.get_clock().now().to_msg()
@@ -671,7 +671,7 @@ def setup_planning_scene(
             cup_object.primitives.append(SolidPrimitive())
             cup_object.primitives[0].type = SolidPrimitive.CYLINDER
             
-            # 使用检测到的真实尺寸，如果没有则使用默认值
+            # Use检测到的真实尺寸，如果没有则使用默认值
             actual_height = spec.get("fitted_height") or float(cup_height)
             actual_radius = spec.get("fitted_radius") or float(cup_radius)
             cup_object.primitives[0].dimensions = [actual_height, actual_radius]  # [height, radius]
@@ -681,14 +681,14 @@ def setup_planning_scene(
             cup_pose.position.y = float(spec.get("y", 0.0)) 
             cup_pose.position.z = float(spec.get("z", 0.0)) 
             
-            # 使用检测到的真实姿态（如果有的话）
+            # Use检测到的真实姿态（如果有的话）
             if spec.get("orientation_valid", False):
                 cup_pose.orientation.x = float(spec.get("qx", 0.0))
                 cup_pose.orientation.y = float(spec.get("qy", 0.0))
                 cup_pose.orientation.z = float(spec.get("qz", 0.0))
                 cup_pose.orientation.w = float(spec.get("qw", 1.0))
             else:
-                cup_pose.orientation.w = 1.0  # 使用默认姿态(0,0,0,1)
+                cup_pose.orientation.w = 1.0  # Use默认姿态(0,0,0,1)
             
             cup_object.primitive_poses.append(cup_pose)
             cup_object.operation = CollisionObject.ADD
@@ -713,7 +713,7 @@ def setup_planning_scene(
             })
             cup_created_specs.append({"id": spec["id"]})
         
-        # 生成 bowl 碰撞对象（更矮更大；Z 使用默认高度）
+        # Generate bowl 碰撞对象（更矮更大；Z 使用默认高度）
         if include_bowl and bowl_specs:
             for spec in bowl_specs:
                 bowl_object = CollisionObject()
@@ -740,7 +740,7 @@ def setup_planning_scene(
                 })
                 bowl_created_specs.append({"id": spec["id"]})
         
-        # 生成 bottle 碰撞对象（更高更细；Z 使用默认高度）
+        # Generate bottle 碰撞对象（更高更细；Z 使用默认高度）
         if include_bottle and bottle_specs:
             for spec in bottle_specs:
                 bottle_object = CollisionObject()
@@ -772,7 +772,7 @@ def setup_planning_scene(
             planning_scene_msg = PlanningScene()
             planning_scene_msg.world.collision_objects = collision_objects
             planning_scene_msg.is_diff = True
-            # 设置墙的颜色透明度（如果启用）
+            # Set/Setup墙的颜色透明度（如果启用）
             if add_no_go_wall:
                 oc = ObjectColor()
                 oc.id = "no_go_wall"
@@ -912,7 +912,7 @@ def check_object_exists(object_id: str = "object_1", timeout_sec: float = 5.0) -
         from moveit_msgs.msg import PlanningSceneComponents
         import time
         
-        # 使用GetPlanningScene服务查询对象
+        # UseGetPlanningScene服务查询对象
         client = node.create_client(GetPlanningScene, '/get_planning_scene')
         
         if not client.wait_for_service(timeout_sec=timeout_sec):
@@ -926,11 +926,11 @@ def check_object_exists(object_id: str = "object_1", timeout_sec: float = 5.0) -
                 "msg": f"Cannot verify object '{object_id}' - planning scene service unavailable"
             }
         
-        # 构建请求
+        # Build请求
         request = GetPlanningScene.Request()
         request.components.components = PlanningSceneComponents.WORLD_OBJECT_NAMES
         
-        # 发送请求
+        # Send请求
         future = client.call_async(request)
         rclpy.spin_until_future_complete(node, future, timeout_sec=timeout_sec)
         
@@ -1015,7 +1015,7 @@ def update_cup_pose(cup_x: float, cup_y: float, cup_z: float,
                 "msg": "Cup object 'object_1' not found in planning scene. Please setup planning scene first."
             }
         
-        # 使用ApplyPlanningScene服务来更新对象，与setup_planning_scene保持一致
+        # UseApplyPlanningScene服务来更新对象，与setup_planning_scene保持一致
         apply_scene_client = node.create_client(ApplyPlanningScene, '/apply_planning_scene')
         
         if not apply_scene_client.wait_for_service(timeout_sec=timeout_sec/2):
@@ -1026,7 +1026,7 @@ def update_cup_pose(cup_x: float, cup_y: float, cup_z: float,
         else:
             use_service = True
         
-        # 创建新的杯子对象来替换现有的
+        # Create新的杯子对象来替换现有的
         cup_object = CollisionObject()
         cup_object.header.stamp = node.get_clock().now().to_msg()
         cup_object.header.frame_id = "link_base"
@@ -1040,7 +1040,7 @@ def update_cup_pose(cup_x: float, cup_y: float, cup_z: float,
         cup_pose.position.y = cup_y
         cup_pose.position.z = cup_z
         
-        # 设置方向
+        # Set/Setup方向
         if all(q is not None for q in [cup_qx, cup_qy, cup_qz, cup_qw]):
             cup_pose.orientation.x = cup_qx
             cup_pose.orientation.y = cup_qy
@@ -1050,9 +1050,9 @@ def update_cup_pose(cup_x: float, cup_y: float, cup_z: float,
             cup_pose.orientation.w = 1.0
         
         cup_object.primitive_poses.append(cup_pose)
-        cup_object.operation = CollisionObject.ADD  # 使用ADD操作替换对象（MoveIt会自动覆盖同名对象）
+        cup_object.operation = CollisionObject.ADD  # UseADD操作替换对象（MoveIt会自动覆盖同名对象）
         
-        # 更新对象 - 使用先删除再添加的可靠方法
+        # Update对象 - 使用先删除再添加的可靠方法
         if use_service:
             # 方式1：先删除现有对象
             remove_object = CollisionObject()
@@ -1106,11 +1106,11 @@ def update_cup_pose(cup_x: float, cup_y: float, cup_z: float,
             collision_object_pub.publish(remove_object)
             time.sleep(0.2)
             
-            # 添加新对象
+            # Add新对象
             collision_object_pub.publish(cup_object)
             method = "topic (remove+add)"
         
-        time.sleep(0.5)  # 等待更新生效
+        time.sleep(0.5)  # Wait for更新生效
         
         node.get_logger().info(f"Updated cup pose using {method} to: x={cup_x:.3f}, y={cup_y:.3f}, z={cup_z:.3f}")
         
@@ -1200,11 +1200,11 @@ def _execute_real_mtc_task(task_type: str, params_dict: Dict[str, Any], task_nam
         
         # 环境变量已在模块级别设置，无需重复设置
         
-        # 导入Action客户端
+        # ImportAction客户端
         from rclpy.action import ActionClient
         import mtc_interface.action
         
-        # 创建Action客户端
+        # CreateAction客户端
         action_client = ActionClient(node, mtc_interface.action.ExecutePour, action_name)
         
         # 针对 pick 任务：在发送 goal 之前，将参数写入模块化服务器的参数表
@@ -1260,7 +1260,7 @@ def _execute_real_mtc_task(task_type: str, params_dict: Dict[str, Any], task_nam
                 if not ok:
                     node.get_logger().warn("设置 place 参数失败（可能未启动或节点名不匹配）：/modular_task_server")
         
-        # 等待服务器
+        # Wait for服务器
         if not action_client.wait_for_server(timeout_sec=10.0):
             return {
                 "ok": False,
@@ -1270,7 +1270,7 @@ def _execute_real_mtc_task(task_type: str, params_dict: Dict[str, Any], task_nam
                 "task_name": task_name
             }
         
-        # 构建Goal (复用ExecutePour的消息格式，通过target_id指定任务类型)
+        # BuildGoal (复用ExecutePour的消息格式，通过target_id指定任务类型)
         goal = mtc_interface.action.ExecutePour.Goal()
         # 关键：通过target_id指定任务类型；若传入object_id，则编码为 task:object_id
         if task_type in ("pick", "place", "move_to_pour") and 'object_id' in params_dict and params_dict['object_id']:
@@ -1300,7 +1300,7 @@ def _execute_real_mtc_task(task_type: str, params_dict: Dict[str, Any], task_nam
             fb = feedback_msg.feedback
             node.get_logger().info(f"[{fb.stage}] 进度: {fb.progress:.1%}")
         
-        # 发送目标（更稳健：更长等待+一次重试）
+        # Send目标（更稳健：更长等待+一次重试）
         def _send_and_wait(timeout: float):
             fut = action_client.send_goal_async(goal, feedback_callback=feedback_callback)
             rclpy.spin_until_future_complete(node, fut, timeout_sec=timeout)
@@ -1328,7 +1328,7 @@ def _execute_real_mtc_task(task_type: str, params_dict: Dict[str, Any], task_nam
         node.get_logger().info(f'✅ {task_name}任务已被模块化服务器接受，开始执行...')
         start_time = time.time()
         
-        # 等待结果
+        # Wait for结果
         result_future = gh.get_result_async()
         while not result_future.done():
             if timeout_sec and time.time() - start_time > timeout_sec:
@@ -1346,7 +1346,7 @@ def _execute_real_mtc_task(task_type: str, params_dict: Dict[str, Any], task_nam
                 "task_name": task_name
             }
         
-        # 处理结果
+        # Process结果
         result_msg = result_future.result()
         result = result_msg.result
         status_code = result_msg.status
@@ -1441,11 +1441,11 @@ def pick_container(source_pose: Dict[str, float],
             "lift_height": 0.12
         })
     
-    # 使用真实的模块化任务服务器
+    # Use真实的模块化任务服务器
     try:
         return _execute_real_mtc_task("pick", params, "抓取容器", 'execute_modular_task', timeout_sec)
     except Exception as e:
-        # 使用标准化错误处理
+        # Use标准化错误处理
         return _create_error_result("抓取容器", f"模块化服务器不可用: {str(e)}", 
                                    params, "server_unavailable")
 
@@ -1497,11 +1497,11 @@ def pour_to_target(target_pose: Optional[Dict[str, float]] = None,
             "move_to_pour_max": 0.15
         })
     
-    # 使用真实的模块化任务服务器
+    # Use真实的模块化任务服务器
     try:
         return _execute_real_mtc_task("pour", params, "倾倒液体", 'execute_modular_task', timeout_sec)
     except Exception as e:
-        # 使用标准化错误处理
+        # Use标准化错误处理
         return _create_error_result("倾倒液体", f"模块化服务器不可用: {str(e)}", 
                                    params, "server_unavailable")
 
@@ -1541,11 +1541,11 @@ def place_container(target_pose: Optional[Dict[str, float]] = None,
             params["target_z"] = target_pose.get("z", 0.18)
     # 3) 否则使用服务器默认位置
     
-    # 使用真实的模块化任务服务器
+    # Use真实的模块化任务服务器
     try:
         return _execute_real_mtc_task("place", params, "放置容器", 'execute_modular_task', timeout_sec)
     except Exception as e:
-        # 使用标准化错误处理
+        # Use标准化错误处理
         return _create_error_result("放置容器", f"模块化服务器不可用: {str(e)}", 
                                    params, "server_unavailable")
 
@@ -1594,10 +1594,10 @@ def move_to_pour_position(x: float,
         - coordinates_cleared/object_id_cleared: 表示清除了冲突参数
     
     使用示例：
-    # 使用自定义坐标（安全位置）
+    # Use自定义坐标（安全位置）
     result = move_to_pour_position(x=-0.17, y=-0.45, z=0.42, object_id=None)
     
-    # 使用对象坐标（会忽略 x,y,z 参数）
+    # Use对象坐标（会忽略 x,y,z 参数）
     result = move_to_pour_position(x=0, y=0, z=0, object_id="bowl")
     
     # 移动到安全位置并倾倒
@@ -1611,10 +1611,10 @@ def move_to_pour_position(x: float,
     # 在pour后安全移动（强制清除参数，解决冲突）
     result = move_to_pour_position(x=-0.17, y=-0.45, z=0.42, force_clear_params=True)
     """
-    # 验证速度参数范围
+    # Validate速度参数范围
     speed = max(0.05, min(0.3, speed))
     
-    # 设置参数到模块化任务服务器 - 使用简化的核心参数
+    # Set/Setup参数到模块化任务服务器 - 使用简化的核心参数
     # 优化坐标传入逻辑：明确区分 object_id 模式和坐标模式
     move_to_pour_params = {
         "move_to_pour.velocity_scaling": speed,
@@ -1637,7 +1637,7 @@ def move_to_pour_position(x: float,
     
     # 1. 优先处理 object_id 模式（当 object_id 非空时）
     if object_id and str(object_id).strip():
-        # 解析/规范化 object_id，例如 object3 -> object_3
+        # Parse/规范化 object_id，例如 object3 -> object_3
         raw_oid = str(object_id).strip()
         norm_oid = raw_oid
         try:
@@ -1686,12 +1686,12 @@ def move_to_pour_position(x: float,
 
     # 2. 根据使用模式设置对应参数（修复：不使用空字符串，分批设置参数）
     if use_object_id and resolved_oid:
-        # 使用 object_id 模式：仅设置 object_id 和控制参数
+        # Use object_id 模式：仅设置 object_id 和控制参数
         move_to_pour_params["move_to_pour.object_id"] = resolved_oid
         # 不设置坐标参数，让服务器使用object_id模式
     else:
-        # 使用坐标模式：设置坐标和控制参数
-        # 验证坐标有效性（非零坐标）
+        # Use坐标模式：设置坐标和控制参数
+        # Validate坐标有效性（非零坐标）
         has_valid_coords = not (x == 0.0 and y == 0.0 and z == 0.0)
         if has_valid_coords:
             move_to_pour_params["move_to_pour.target_x"] = float(x)
@@ -1704,7 +1704,7 @@ def move_to_pour_position(x: float,
             move_to_pour_params["move_to_pour.target_z"] = 0.2
         # 不设置 object_id 参数，让服务器使用坐标模式
     
-    # 设置参数到服务器 - 采用更安全的两阶段设置
+    # Set/Setup参数到服务器 - 采用更安全的两阶段设置
     server_node = '/modular_task_server'
     
     # 预阶段：如果强制清除参数，先重置所有相关参数（适用于pour后的安全移动）
@@ -1721,7 +1721,7 @@ def move_to_pour_position(x: float,
         }
         _set_params(server_node, force_clear, timeout_sec=8.0)
         import time
-        time.sleep(0.8)  # 等待强制清除生效
+        time.sleep(0.8)  # Wait for强制清除生效
     
     # 阶段1：如果模式切换，先清除可能冲突的参数（使用有效的默认值而不是空字符串）
     clear_params = {}
@@ -1734,7 +1734,7 @@ def move_to_pour_position(x: float,
         })
     else:
         # 要使用坐标，清除可能的 object_id 参数
-        clear_params["move_to_pour.object_id"] = "none"  # 使用特殊值表示无对象
+        clear_params["move_to_pour.object_id"] = "none"  # Use特殊值表示无对象
     
     # 先清除冲突参数（如果没有强制清除）
     if clear_params and not force_clear_params:
@@ -1748,7 +1748,7 @@ def move_to_pour_position(x: float,
                                        f"无法设置参数到服务器 {server_node}. 参数: {move_to_pour_params}",
                                        move_to_pour_params, "param_setting_failed")
     
-    # 构建任务执行参数
+    # Build任务执行参数
     params = {
         "plan_only": False,
         "timeout_sec": timeout_sec,
@@ -1769,9 +1769,9 @@ def move_to_pour_position(x: float,
     else:
         print(f"🔧 [DEBUG] 使用坐标模式: ({x}, {y}, {z})")
     
-    # 使用模块化任务服务器执行移动
+    # Use模块化任务服务器执行移动
     try:
-        # 生成任务名称，明确显示使用的模式
+        # Generate任务名称，明确显示使用的模式
         if use_object_id and resolved_oid:
             task_name = f"移动到倾倒位置(对象:{resolved_oid})"
             coord_info = f"对象ID: {resolved_oid}"
@@ -1779,7 +1779,7 @@ def move_to_pour_position(x: float,
             task_name = f"移动到倾倒位置(坐标:{x:.2f}, {y:.2f}, {z:.2f})"  
             coord_info = f"坐标: ({x:.3f}, {y:.3f}, {z:.3f})"
         
-        # 添加额外功能到任务名称
+        # Add额外功能到任务名称
         if pour_execute:
             task_name += " + 倾倒"
         if execute_give:
@@ -1788,7 +1788,7 @@ def move_to_pour_position(x: float,
         result = _execute_real_mtc_task("move_to_pour", params, task_name,
                                        'execute_modular_task', timeout_sec)
         
-        # 添加详细的配置信息到结果中
+        # Add详细的配置信息到结果中
         if result.get("ok") or result.get("success"):
             info = {
                 "coordinate_mode": "object_id" if use_object_id else "coordinates",
@@ -1875,11 +1875,11 @@ def return_to_home(target_joints: Optional[Dict[str, float]] = None,
     if target_joints:
         params["target_joints"] = target_joints
     
-    # 使用真实的模块化任务服务器
+    # Use真实的模块化任务服务器
     try:
         return _execute_real_mtc_task("return", params, "返回初始位置", 'execute_modular_task', timeout_sec)
     except Exception as e:
-        # 使用标准化错误处理
+        # Use标准化错误处理
         return _create_error_result("返回初始位置", f"模块化服务器不可用: {str(e)}", 
                                    params, "server_unavailable")
 
@@ -1920,7 +1920,7 @@ def get_task_state(timeout_sec: float = 5.0) -> Dict[str, Any]:
         
         result["timestamp"] = time.time()
         
-        # 检查Action服务器状态
+        # CheckAction服务器状态
         from rclpy.action import ActionClient
         try:
             import mtc_interface.action  # type: ignore
@@ -1935,7 +1935,7 @@ def get_task_state(timeout_sec: float = 5.0) -> Dict[str, Any]:
             result["action_status"] = "error"
             result["last_error"] = f"Action client setup failed: {str(e)}"
         
-        # 获取关节状态 - 推断gripper状态 (UF850适配)
+        # Get关节状态 - 推断gripper状态 (UF850适配)
         joint_state_received = False
         def joint_callback(msg):
             nonlocal joint_state_received, result
@@ -1964,7 +1964,7 @@ def get_task_state(timeout_sec: float = 5.0) -> Dict[str, Any]:
             except Exception as e:
                 result["gripper_state"] = f"error: {str(e)}"
         
-        # 获取机器人末端位姿 - 从tf或话题
+        # Get机器人末端位姿 - 从tf或话题
         pose_received = False
         def pose_callback(msg):
             nonlocal pose_received, result
@@ -2105,7 +2105,7 @@ def abort_and_reset(reason: str = "User requested abort",
                         invalid_goal.approach_max = 0.02
                         invalid_goal.target_id = "ABORT_REQUEST"
                         
-                        # 发送这个goal会导致服务器处理新的请求，可能中断当前任务
+                        # Send这个goal会导致服务器处理新的请求，可能中断当前任务
                         send_future = pour_client.send_goal_async(invalid_goal)
                         rclpy.spin_until_future_complete(node, send_future, timeout_sec=2.0)
                         
@@ -2128,7 +2128,7 @@ def abort_and_reset(reason: str = "User requested abort",
         except Exception as e:
             result["warnings"].append(f"Pour action取消操作失败: {str(e)}")
         
-        # 等待一下确保取消操作生效
+        # Wait for一下确保取消操作生效
         if cancel_success:
             time.sleep(0.5)
         
@@ -2138,17 +2138,17 @@ def abort_and_reset(reason: str = "User requested abort",
             if safe_pose_joints is None:
                 safe_pose_joints = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # UF850 home pose
             
-            # 使用MoveGroup Action移动到安全位姿
+            # UseMoveGroup Action移动到安全位姿
             mg_client = ActionClient(node, MoveGroup, '/move_action')
             
             if mg_client.wait_for_server(timeout_sec=5.0):
-                # 构建MoveGroup goal
+                # BuildMoveGroup goal
                 goal = MoveGroup.Goal()
                 goal.request.group_name = "uf850"  # UF850的group名称
                 goal.request.max_velocity_scaling_factor = 0.3  # 安全速度
                 goal.request.max_acceleration_scaling_factor = 0.3
                 
-                # 设置关节目标 (UF850的6个关节)
+                # Set/Setup关节目标 (UF850的6个关节)
                 joint_names = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6']
                 
                 joint_constraint = Constraints()
@@ -2163,7 +2163,7 @@ def abort_and_reset(reason: str = "User requested abort",
                 
                 goal.request.goal_constraints.append(joint_constraint)
                 
-                # 发送目标并等待
+                # Send目标并等待
                 send_future = mg_client.send_goal_async(goal)
                 rclpy.spin_until_future_complete(node, send_future, timeout_sec=5.0)
                 
@@ -2240,7 +2240,7 @@ if __name__ == '__main__':
     sub = ap.add_subparsers(dest='cmd')
 
     sp1 = sub.add_parser('execute')
-    # 使用合并后的默认参数
+    # Use合并后的默认参数
     sp1.add_argument('--start', type=float, default=POUR_DEFAULTS['tilt_start_deg'])
     sp1.add_argument('--end', type=float, default=POUR_DEFAULTS['tilt_end_deg'])
     sp1.add_argument('--speed', type=float, default=POUR_DEFAULTS['tilt_speed_deg_s'])

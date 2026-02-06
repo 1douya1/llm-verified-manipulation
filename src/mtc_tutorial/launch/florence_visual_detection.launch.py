@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Florence-2 Visual Detection Launch File
-仅启动可视化检测节点，用于测试和查看检测效果
+Only launches visual detection node for testing and viewing detection results
 """
 
 from launch import LaunchDescription
@@ -11,108 +11,108 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    # Florence-2 服务参数
+    # Florence-2 service parameters
     detector_url_arg = DeclareLaunchArgument(
         'detector_url',
         default_value='http://localhost:4399',
-        description='Florence-2 检测服务 URL'
+        description='Florence-2 detection service URL'
     )
     
     target_objects_arg = DeclareLaunchArgument(
         'target_objects',
         default_value="['cup', 'bottle', 'bowl']",
-        description='要检测的目标物体列表'
+        description='Target object list for detection'
     )
     
-    # 相机话题参数
+    # Camera topic parameters
     color_topic_arg = DeclareLaunchArgument(
         'color_topic',
         default_value='/camera/camera/color/image_raw',
-        description='彩色图像话题'
+        description='Color image topic'
     )
     
     depth_topic_arg = DeclareLaunchArgument(
         'depth_topic',
         default_value='/camera/camera/aligned_depth_to_color/image_raw',
-        description='深度图像话题'
+        description='Depth image topic'
     )
     
     camera_info_topic_arg = DeclareLaunchArgument(
         'camera_info_topic',
         default_value='/camera/camera/color/camera_info',
-        description='相机信息话题'
+        description='Camera info topic'
     )
     
-    # 坐标系参数
+    # Frame parameters
     camera_frame_arg = DeclareLaunchArgument(
         'camera_frame',
         default_value='camera_color_optical_frame',
-        description='相机光学坐标系frame'
+        description='Camera optical frame'
     )
     
     base_frame_arg = DeclareLaunchArgument(
         'base_frame',
         default_value='link_base',
-        description='机器人基座坐标系frame'
+        description='Robot base frame'
     )
     
-    # 检测参数
+    # Detection parameters
     confidence_threshold_arg = DeclareLaunchArgument(
         'confidence_threshold',
         default_value='0.5',
-        description='检测置信度阈值'
+        description='Detection confidence threshold'
     )
     
-    # 可视化参数
+    # Visualization parameters
     enable_display_arg = DeclareLaunchArgument(
         'enable_display',
         default_value='true',
-        description='是否启用 OpenCV 可视化窗口'
+        description='Whether to enable OpenCV visualization window'
     )
     
     display_scale_arg = DeclareLaunchArgument(
         'display_scale',
         default_value='1.0',
-        description='显示窗口缩放比例'
+        description='Display window scale ratio'
     )
     
     box_thickness_arg = DeclareLaunchArgument(
         'box_thickness',
         default_value='2',
-        description='边界框线条粗细'
+        description='Bounding box line thickness'
     )
     
     font_scale_arg = DeclareLaunchArgument(
         'font_scale',
         default_value='0.6',
-        description='标签字体大小'
+        description='Label font size'
     )
     
     show_3d_coords_arg = DeclareLaunchArgument(
         'show_3d_coords',
         default_value='true',
-        description='是否在标签中显示3D坐标'
+        description='Whether to show 3D coordinates in labels'
     )
     
-    # 外参矩阵加载方式参数
+    # Extrinsics matrix loading method parameter
     use_tf_extrinsics_arg = DeclareLaunchArgument(
         'use_tf_extrinsics',
-        default_value='false',  # 默认使用静态参数（eye-in-hand场景）
-        description='是否使用TF获取外参（false则使用静态参数）'
+        default_value='false',  # Default use static parameters (eye-in-hand scenario)
+        description='Whether to use TF for extrinsics (false uses static parameters)'
     )
     
-    # 静态外参参数（从标定文件uf850_rs_on_hand_calibration.calib中提取）
-    # 注意：数组参数在 launch 文件中需要作为字符串传递，节点会自动解析
+    # Static extrinsics parameters (extracted from calibration file uf850_rs_on_hand_calibration.calib)
+    # Note: array parameters need to be passed as strings in launch files, nodes will auto-parse
     static_extrinsics_translation_arg = DeclareLaunchArgument(
         'static_extrinsics_translation',
         default_value='[0.06637719970480799, -0.032133912794949385, 0.02259679892714925]',
-        description='默认UF850手眼标定文件中的静态外参平移 [x, y, z]（T_ee_cam的translation）'
+        description='Static extrinsics translation from default UF850 hand-eye calibration file [x, y, z] (T_ee_cam translation)'
     )
     
     static_extrinsics_rotation_arg = DeclareLaunchArgument(
         'static_extrinsics_rotation',
         default_value='[0.0013075170827278532, -0.0024892917521336377, 0.7106597907015502, 0.7035302095188808]',
-        description='默认UF850手眼标定文件中的静态外参旋转四元数 [x, y, z, w]（T_ee_cam的rotation）'
+        description='Static extrinsics rotation quaternion from default UF850 hand-eye calibration file [x, y, z, w] (T_ee_cam rotation)'
     )
     
     # Florence-2 可视化检测节点
@@ -142,7 +142,7 @@ def generate_launch_description():
     )
     
     return LaunchDescription([
-        # 参数声明
+        # Parameter declarations
         detector_url_arg,
         target_objects_arg,
         color_topic_arg,
@@ -160,7 +160,7 @@ def generate_launch_description():
         static_extrinsics_translation_arg,
         static_extrinsics_rotation_arg,
         
-        # 节点启动
+        # Node launch
         florence_visual_node,
     ])
 

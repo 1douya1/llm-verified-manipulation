@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-仅检测节点启动文件
-只启动物体检测和标记发布器，不启动相机和手眼标定
+Detection-only launch file
+Only launches object detection and marker publisher, does not launch camera and hand-eye calibration
 """
 
 from launch import LaunchDescription
@@ -11,97 +11,97 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    # 相机话题参数
+    # Camera topic parameters
     color_topic_arg = DeclareLaunchArgument(
         'color_topic',
         default_value='/camera/camera/color/image_raw',
-        description='彩色图像话题'
+        description='Color image topic'
     )
     
     depth_topic_arg = DeclareLaunchArgument(
         'depth_topic',
         default_value='/camera/camera/aligned_depth_to_color/image_raw',
-        description='深度图像话题'
+        description='Depth image topic'
     )
     
     camera_info_topic_arg = DeclareLaunchArgument(
         'camera_info_topic',
         default_value='/camera/camera/color/camera_info',
-        description='相机信息话题'
+        description='Camera info topic'
     )
     
-    # 坐标系参数
+    # Frame parameters
     camera_frame_arg = DeclareLaunchArgument(
         'camera_frame',
         default_value='camera_color_optical_frame',
-        description='相机光学坐标系frame'
+        description='Camera optical frame'
     )
     
     base_frame_arg = DeclareLaunchArgument(
         'base_frame',
         default_value='link_base',
-        description='机器人基座坐标系frame'
+        description='Robot base frame'
     )
     
-    # YOLO参数
+    # YOLO parameters
     yolo_model_arg = DeclareLaunchArgument(
         'yolo_model',
         default_value='yolov8s.pt',
-        description='YOLO模型文件路径'
+        description='YOLO model file path'
     )
     
     confidence_threshold_arg = DeclareLaunchArgument(
         'confidence_threshold',
         default_value='0.5',
-        description='检测置信度阈值'
+        description='Detection confidence threshold'
     )
     
-    # 允许检测的物体类别
+    # Allowed detection object classes
     allowed_classes_arg = DeclareLaunchArgument(
         'allowed_classes',
         default_value="['person', 'cup', 'bottle', 'bowl']",
-        description='允许检测的物体类别列表'
+        description='Allowed object class list for detection'
     )
     
-    # 深度单位参数
+    # Depth unit parameters
     depth_scale_arg = DeclareLaunchArgument(
         'depth_scale',
         default_value='0.001',
-        description='深度单位转换比例 (RealSense通常为0.001)'
+        description='Depth unit conversion scale (RealSense typically 0.001)'
     )
     
-    # 标记参数
+    # Marker parameters
     marker_lifetime_arg = DeclareLaunchArgument(
         'marker_lifetime',
         default_value='3000.0',
-        description='RViz标记持续时间（秒）'
+        description='RViz marker lifetime (seconds)'
     )
     
     use_base_frame_arg = DeclareLaunchArgument(
         'use_base_frame',
         default_value='true',
-        description='是否优先使用基座坐标系显示标记'
+        description='Whether to prefer using base frame for marker display'
     )
 
-    # 桥接参数
+    # Bridge parameters
     bridge_only_cup_arg = DeclareLaunchArgument(
         'bridge_only_cup',
         default_value='false',
-        description='桥接节点是否仅转发杯子'
+        description='Whether bridge node only forwards cups'
     )
     bridge_min_conf_arg = DeclareLaunchArgument(
         'bridge_min_confidence',
         default_value='0.3',
-        description='桥接节点的最小置信度过滤阈值'
+        description='Bridge node minimum confidence filter threshold'
     )
     
     bridge_allowed_classes_arg = DeclareLaunchArgument(
         'bridge_allowed_classes',
         default_value="['cup', 'bowl', 'bottle']",
-        description='桥接节点允许的物体类别'
+        description='Bridge node allowed object classes'
     )
     
-    # One-shot物体检测节点
+    # One-shot object detection node
     oneshot_detection_node = Node(
         package='mtc_tutorial',
         executable='object_single_shot_detection.py',
@@ -116,13 +116,13 @@ def generate_launch_description():
             'confidence_threshold': LaunchConfiguration('confidence_threshold'),
             'depth_scale': LaunchConfiguration('depth_scale'),
             'allowed_classes': LaunchConfiguration('allowed_classes'),
-            'verbose_logging': True,  # 启用详细日志以调试点云拟合
-            'enable_6d_pose': True,   # 确保6D姿态估计已启用
+            'verbose_logging': True,  # Enable verbose logging for debugging pointcloud fitting
+            'enable_6d_pose': True,   # Ensure 6D pose estimation is enabled
         }],
         output='screen'
     )
     
-    # 物体标记发布器节点
+    # Object marker publisher node
     marker_publisher_node = Node(
         package='mtc_tutorial',
         executable='object_marker_publisher.py',
@@ -135,7 +135,7 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 检测→规划场景桥接节点
+    # Detection → planning scene bridge node
     detection_to_scene_node = Node(
         package='mtc_tutorial',
         executable='detection_to_planning_scene.py',
@@ -152,7 +152,7 @@ def generate_launch_description():
     )
     
     return LaunchDescription([
-        # 参数声明
+        # Parameter declarations
         color_topic_arg,
         depth_topic_arg,
         camera_info_topic_arg,
@@ -168,7 +168,7 @@ def generate_launch_description():
         bridge_min_conf_arg,
         bridge_allowed_classes_arg,
         
-        # 节点启动
+        # Node launches
         oneshot_detection_node,
         marker_publisher_node,
         detection_to_scene_node,
