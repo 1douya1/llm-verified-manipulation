@@ -18,8 +18,10 @@ Run after sourcing the workspace:
     source install/setup.bash
     python3 scripts/diagnostics/system_diagnosis.py
 
-Steps 2-5 will be skipped (with a warning) if the relevant ROS components
-are not running, so this script never aborts the rest of the diagnosis.
+Steps 2-5 require the corresponding ROS nodes to be running; each step
+returns PASS/FAIL independently. Step 2 now exits non-zero from
+`diagnose_robot_env.py` when `move_group` is not up (so the summary matches
+what you see in the logs).
 """
 
 import importlib
@@ -121,25 +123,38 @@ def step_camera_topic():
         print(f'[ERR] rclpy/sensor_msgs not available: {e}')
         return False
 
+    # Intel ROS2 driver often namespaces topics under /camera/camera/...
+    topics = (
+        '/camera/color/image_raw',
+        '/camera/camera/color/image_raw',
+    )
+
     rclpy.init()
     node = Node('camera_topic_probe')
-    counter = {'n': 0}
+    counter = {'n': 0, 'last_topic': ''}
 
-    def cb(_msg):
-        counter['n'] += 1
+    def make_cb(topic_name):
+        def _cb(_msg):
+            counter['n'] += 1
+            counter['last_topic'] = topic_name
+        return _cb
 
-    node.create_subscription(Image, '/camera/color/image_raw', cb, 10)
-    deadline = time.time() + 3.0
+    for t in topics:
+        node.create_subscription(Image, t, make_cb(t), 10)
+
+    deadline = time.time() + 5.0
     while time.time() < deadline and counter['n'] < 5:
         rclpy.spin_once(node, timeout_sec=0.1)
     node.destroy_node()
     rclpy.shutdown()
 
     if counter['n'] >= 5:
-        print(f'  [OK]  received {counter["n"]} frames in 3s')
+        print(f'  [OK]  received {counter["n"]} frames in 5s on {counter["last_topic"]!r}')
         return True
-    print(f'  [ERR] only received {counter["n"]} frames in 3s')
-    print('        Make sure realsense2_camera_node is running.')
+    print(f'  [ERR] only received {counter["n"]} frames in 5s on {list(topics)}')
+    print('        USB 已插不等于 ROS 在发图：请先运行')
+    print('          ros2 launch realsense2_camera rs_launch.py align_depth.enable:=true enable_sync:=true')
+    print('        然后用 ros2 topic list | grep image_raw 确认实际话题名。')
     return False
 
 

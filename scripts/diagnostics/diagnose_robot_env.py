@@ -27,81 +27,82 @@ def check_move_group():
         rclpy.init()
     
     node = Node('diagnostics_node')
-    
-    # 1. 检查MoveGroup节点
-    print("\n1️⃣  检查MoveGroup节点...")
-    node_names = node.get_node_names()
-    move_group_found = any('move_group' in name for name in node_names)
-    
-    if move_group_found:
-        print("   ✅ MoveGroup节点正在运行")
-        for name in node_names:
-            if 'move_group' in name:
-                print(f"      • {name}")
-    else:
-        print("   [ERR] No move_group node found")
-        print("\n   In another terminal launch one of:")
-        print("     ros2 launch xarm_moveit_config uf850_moveit_fake.launch.py    # plan-only")
-        print("     ros2 launch xarm_moveit_config uf850_moveit_realmove.launch.py robot_ip:=<IP>  # real robot")
-        print("   See docs/REAL_ROBOT_QUICK_START.md for the full launch sequence.")
-        return False
-    
-    # 2. 检查参数服务器
-    print("\n2️⃣  检查MoveGroup参数...")
+    move_group_found = False
     try:
-        from rclpy.parameter_client import SyncParametersClient
-        param_client = SyncParametersClient(node, '/move_group')
-        
-        if param_client.wait_for_service(timeout_sec=2.0):
-            print("   ✅ 参数服务可用")
-            
-            # 检查关键参数
-            try:
-                params = param_client.get_parameters([
-                    'robot_description',
-                    'robot_description_semantic',
-                    'robot_description_kinematics.uf850.kinematics_solver'
-                ])
-                
-                for param in params:
-                    if param.type_ == 0:  # PARAMETER_NOT_SET
-                        print(f"   ⚠️  {param.name}: 未设置")
-                    else:
-                        value_preview = str(param.value)[:50] if param.type_ == 4 else param.value
-                        print(f"   ✅ {param.name}: {value_preview}...")
-            except Exception as e:
-                print(f"   ⚠️  获取参数时出错: {e}")
+        # 1. 检查MoveGroup节点
+        print("\n1️⃣  检查MoveGroup节点...")
+        node_names = node.get_node_names()
+        move_group_found = any('move_group' in name for name in node_names)
+
+        if move_group_found:
+            print("   ✅ MoveGroup节点正在运行")
+            for name in node_names:
+                if 'move_group' in name:
+                    print(f"      • {name}")
         else:
-            print("   ❌ 参数服务不可用")
-    except Exception as e:
-        print(f"   ❌ 检查参数时出错: {e}")
-    
-    # 3. 检查话题
-    print("\n3️⃣  检查关键话题...")
-    topic_names = node.get_topic_names_and_types()
-    
-    important_topics = [
-        '/joint_states',
-        '/move_group/display_planned_path',
-        '/planning_scene',
-    ]
-    
-    for topic in important_topics:
-        found = any(t[0] == topic for t in topic_names)
-        emoji = "✅" if found else "❌"
-        print(f"   {emoji} {topic}")
-    
-    # 4. 检查Action服务器
-    print("\n4️⃣  检查Action服务器...")
-    # 这里可以添加更多检查
-    
-    print("\n" + "="*60)
-    
-    node.destroy_node()
-    if rclpy.ok():
-        rclpy.shutdown()
-    
-    return move_group_found
+            print("   [ERR] No move_group node found")
+            print("\n   In another terminal launch one of:")
+            print("     ros2 launch xarm_moveit_config uf850_moveit_fake.launch.py    # plan-only")
+            print("     ros2 launch xarm_moveit_config uf850_moveit_realmove.launch.py robot_ip:=<IP>  # real robot")
+            print("   See docs/REAL_ROBOT_QUICK_START.md for the full launch sequence.")
+            return False
+
+        # 2. 检查参数服务器
+        print("\n2️⃣  检查MoveGroup参数...")
+        try:
+            from rclpy.parameter_client import SyncParametersClient
+            param_client = SyncParametersClient(node, '/move_group')
+
+            if param_client.wait_for_service(timeout_sec=2.0):
+                print("   ✅ 参数服务可用")
+
+                # 检查关键参数
+                try:
+                    params = param_client.get_parameters([
+                        'robot_description',
+                        'robot_description_semantic',
+                        'robot_description_kinematics.uf850.kinematics_solver'
+                    ])
+
+                    for param in params:
+                        if param.type_ == 0:  # PARAMETER_NOT_SET
+                            print(f"   ⚠️  {param.name}: 未设置")
+                        else:
+                            value_preview = str(param.value)[:50] if param.type_ == 4 else param.value
+                            print(f"   ✅ {param.name}: {value_preview}...")
+                except Exception as e:
+                    print(f"   ⚠️  获取参数时出错: {e}")
+            else:
+                print("   ❌ 参数服务不可用")
+        except Exception as e:
+            print(f"   ❌ 检查参数时出错: {e}")
+
+        # 3. 检查话题
+        print("\n3️⃣  检查关键话题...")
+        topic_names = node.get_topic_names_and_types()
+
+        important_topics = [
+            '/joint_states',
+            '/move_group/display_planned_path',
+            '/planning_scene',
+        ]
+
+        for topic in important_topics:
+            found = any(t[0] == topic for t in topic_names)
+            emoji = "✅" if found else "❌"
+            print(f"   {emoji} {topic}")
+
+        # 4. 检查Action服务器
+        print("\n4️⃣  检查Action服务器...")
+        # 这里可以添加更多检查
+
+        print("\n" + "="*60)
+
+        return move_group_found
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 def check_mtc_action_library():
@@ -135,7 +136,7 @@ def check_mtc_action_library():
     return True
 
 
-def main():
+def main() -> int:
     print("\n" + "="*70)
     print("🔍 MTC Action Library 环境诊断")
     print("="*70)
@@ -157,29 +158,37 @@ def main():
         print("  python3 -c \"from mtc_action_library import get_action_library;\\")
         print("              lib = get_action_library();\\")
         print("              print(lib.execute('return_home'))\"")
+        rc = 0
     elif lib_ok and not mg_ok:
         print("\n[WARN] Action library is installed, but move_group is NOT running.")
         print("\nLaunch move_group first (in another terminal):")
         print("  ros2 launch xarm_moveit_config uf850_moveit_realmove.launch.py robot_ip:=<IP>")
         print("Then re-source this workspace and re-run this script.")
+        rc = 1
     elif not lib_ok:
         print("\n[ERR] Action library is not importable.")
         print("\nRebuild:")
         print("  colcon build --packages-select mtc_action_library_core mtc_action_library_py")
         print("  source install/setup.bash")
+        rc = 2
+    else:
+        rc = 1
     
     print("\n" + "="*70 + "\n")
+    return rc
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except KeyboardInterrupt:
         print("\n\n👋 已中断")
+        sys.exit(130)
     except Exception as e:
         print(f"\n❌ 诊断过程出错: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(3)
 
 
 

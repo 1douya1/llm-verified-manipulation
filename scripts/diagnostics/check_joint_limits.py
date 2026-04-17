@@ -25,22 +25,17 @@ class JointLimitsChecker(Node):
         print("检查UF850关节加速度限制配置")
         print("="*60)
         
-        # 检查 robot_description_planning 参数
+        # Optional: confirm /move_group parameter service exists (ROS 2 Humble API).
         try:
-            # 尝试从 /move_group 节点获取参数
-            param_client = self.create_client(
-                rclpy.parameter.GetParameters,
-                '/move_group/get_parameters'
-            )
-            
-            if not param_client.wait_for_service(timeout_sec=2.0):
-                print("❌ /move_group 节点未运行")
-                return False
-                
-            print("✅ /move_group 节点正在运行")
-            
+            from rclpy.parameter_client import SyncParametersClient
+            pc = SyncParametersClient(self, '/move_group')
+            if pc.wait_for_service(timeout_sec=2.0):
+                print("[OK] /move_group 参数服务可用（在线探测）。")
+            else:
+                print("[..] /move_group 未运行，跳过在线参数探测。")
+                print("      本脚本仍会检查磁盘上的 joint_limits.yaml。")
         except Exception as e:
-            print(f"⚠️  无法连接到move_group: {e}")
+            print(f"[..] 无法探测 /move_group: {e}")
             
         print("\nLocating joint_limits.yaml in xarm_moveit_config...")
         joint_limits_path = _find_joint_limits_yaml()

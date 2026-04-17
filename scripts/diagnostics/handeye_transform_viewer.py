@@ -37,7 +37,7 @@ def fmt_transform(tf):
     )
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--base', default='link_base',
@@ -57,10 +57,12 @@ def main():
     buf = Buffer()
     TransformListener(buf, node)
 
+    any_missing = False
     try:
         period = 1.0 / max(args.rate, 0.1)
         while rclpy.ok():
             rclpy.spin_once(node, timeout_sec=0.1)
+            snap_missing = False
             print('=' * 60)
             print(f'Snapshot @ {time.strftime("%H:%M:%S")}')
             print('=' * 60)
@@ -74,8 +76,18 @@ def main():
                     print(f'\n{label}  ({parent} -> {child}):')
                     print(fmt_transform(tf))
                 except TransformException as e:
+                    snap_missing = True
+                    any_missing = True
                     print(f'\n{label}  ({parent} -> {child}): NOT AVAILABLE')
                     print(f'  ({e})')
+            if snap_missing:
+                print(
+                    '\n提示: 若出现 “does not exist”，请先启动机械臂 + MoveIt（会发布'
+                    ' robot_state_publisher / TF），例如:\n'
+                    '  ros2 launch xarm_moveit_config uf850_moveit_fake.launch.py\n'
+                    '或按 docs/REAL_ROBOT_QUICK_START.md 启动 pour_demo / 真机 launch。'
+                    '\n手眼 TF 需在标定回放节点启动后才会出现。'
+                )
             print()
             if args.once:
                 break
@@ -86,6 +98,10 @@ def main():
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+
+    if args.once and any_missing:
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
