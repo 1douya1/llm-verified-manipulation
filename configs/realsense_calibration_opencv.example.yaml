@@ -1,0 +1,32 @@
+# ============================================================
+# RealSense D435i intrinsics (OpenCV layout -- nested matrix form)
+# ============================================================
+#
+# IMPORTANT: These intrinsics are SAMPLE VALUES from the author's D435i.
+# You MUST re-calibrate and verify your own camera intrinsics BEFORE any
+# hand-eye calibration or real-robot run.
+#
+# This file is the OpenCV-style sibling of realsense_calibration.example.yaml
+# (same numbers, different layout). The Charuco pose publisher and calibration
+# launch files load this OpenCV form by default.
+# ============================================================
+camera_matrix:
+- - 569.3621522068521
+  - 0.0
+  - 330.4381317809184
+- - 0.0
+  - 563.8730103685718
+  - 187.17507461962154
+- - 0.0
+  - 0.0
+  - 1.0
+distortion_coefficients:
+- - 0.023269850582438432
+  - -0.3885087460221688
+  - -0.03507653254864753
+  - 0.010467470468189596
+  - 0.559444776729344
+image_size:
+- 640
+- 480
+rms_error: 0.19811558067689694

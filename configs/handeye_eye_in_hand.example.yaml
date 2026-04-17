@@ -1,0 +1,42 @@
+# ============================================================
+# Eye-in-Hand hand-eye calibration reference (link_eef -> camera_color_optical_frame)
+# ============================================================
+#
+# Source : xArm factory-provided eye-in-hand reference
+# Hardware: UF850 (6-DoF) + Intel RealSense D435i mounted on link_eef
+#
+# Safe to start from this as a BASELINE for the SAME hardware combination.
+# You MUST re-run the eye-in-hand pipeline if you change the camera, the
+# mount bracket, the tool geometry, or the gripper.
+#
+# Coordinate convention:
+#   - translation.x/y/z in metres (camera origin expressed in the end-effector frame)
+#   - rotation is a unit quaternion (qx, qy, qz, qw)
+#
+# How to replay these values:
+#   1. Save this file to ~/.ros/easy_handeye2_calibrations/<name>.calib
+#      with `name: charuco_eye_in_hand_1` (must match --name on the launcher).
+#   2. Launch the publisher:
+#        ros2 launch mtc_tutorial charuco_handeye_publish.launch.py \
+#            calibration_name:=charuco_eye_in_hand_1
+# ============================================================
+calibration:
+  name: "charuco_eye_in_hand_1"
+  type: "eye_in_hand"
+  robot_base_frame: "link_base"
+  robot_effector_frame: "link_eef"
+  tracking_base_frame: "camera_color_optical_frame"
+  tracking_marker_frame: "charuco_board"
+
+# Factory reference transform from link_eef -> camera_color_optical_frame.
+# Replace these with your own calibration run's output if you remount anything.
+transform:
+  translation:
+    x: 0.055
+    y: 0.015
+    z: -0.035
+  rotation:
+    x: 0.0
+    y: 0.0
+    z: 0.7071068
+    w: 0.7071068
