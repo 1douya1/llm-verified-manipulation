@@ -1,54 +1,69 @@
-# Bridging Semantics and Physics with Constrained Multimodal LLMs for Safe Robotic Pouring
+# RSS Workshop - AI-Driven Robot Manipulation System
 
-**Supplementary Repository for RSS 2026 Conference**
+**Supplementary Repository for RSS 2025 Conference**
 
-## 📌 Purpose of This Repository
+## Purpose of This Repository
 
-This is a **reference implementation** and **transparency artifact** accompanying an RSS system paper. The goal is to provide reviewers and researchers with:
+This repository supports **two complementary use cases** for the RSS system paper:
 
-1. ✅ **Architecture transparency**: Clear view of system components and data flow
-2. ✅ **Planning verification**: Runnable task planning pipeline (no hardware required)
-3. ✅ **Code reference**: Documented implementation of MTC-based manipulation
-4. ⚠️ **NOT a full reproduction**: Hardware experiments require specific robot setup and calibration
+1. **Reviewer / researcher path** -- runnable planning pipeline with no robot
+   hardware required (default, recommended for reviewers).
+2. **Full hardware path** -- end-to-end execution on UFACTORY UF850 + Intel
+   RealSense D435i, including ChArUco hand-eye calibration, perception, and
+   MTC-based motion execution.
 
-**Default Execution Mode**: **Plan-Only / Dry-Run** (recommended for reviewers)
+Both paths share the same source tree, build system, and agent layer -- the
+only difference is whether the robot + camera are physically connected.
 
----
-
-## 📖 Quick Navigation
-
-**For Reviewers**:
-- 🎯 [REVIEWER_GUIDE.md](REVIEWER_GUIDE.md) - Start here! (10-minute verification path)
-- 📋 [EXECUTION_MODES.md](EXECUTION_MODES.md) - Plan-Only vs Simulation vs Real Robot
-- 🚀 [docs/QUICK_START.md](docs/QUICK_START.md) - Step-by-step setup
-
-**For Understanding**:
-- 🏗️ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design and module overview
-- 📚 [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - API documentation
-- 🐍 [PYTHON_DEPENDENCIES.md](PYTHON_DEPENDENCIES.md) - When you need Python deps
-
-**For Troubleshooting**:
-- 🔧 [BUILD_COMMANDS.md](BUILD_COMMANDS.md) - Detailed build instructions
-- ❓ [docs/EXCLUDED_COMPONENTS.md](docs/EXCLUDED_COMPONENTS.md) - What's not included and why
+**Default Execution Mode**: **Plan-Only / Dry-Run** (recommended for reviewers).
+For the real-robot path, start at
+[docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md).
 
 ---
 
+## Quick Navigation
+
+**For reviewers** (no robot hardware):
+- [REVIEWER_GUIDE.md](REVIEWER_GUIDE.md) -- 10-minute verification path
+- [EXECUTION_MODES.md](EXECUTION_MODES.md) -- Plan-Only vs Fake vs Real Robot
+- [docs/QUICK_START.md](docs/QUICK_START.md) -- plan-only step-by-step setup
+
+**For the full hardware path** (new in v2.0):
+- [docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md) -- 10 steps from zero to real-robot pour
+- [docs/CALIBRATION_PIPELINE.md](docs/CALIBRATION_PIPELINE.md) -- ChArUco hand-eye procedure
+- [docs/SAFETY_CHECKLIST.md](docs/SAFETY_CHECKLIST.md) -- **must read before any motion**
+
+**For understanding the code**:
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) -- system design and data flow
+- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) -- action / tool reference
+- [external-deps.md](external-deps.md) -- authoritative submodule / apt / pip matrix
+
+**For troubleshooting**:
+- [BUILD_COMMANDS.md](BUILD_COMMANDS.md) -- detailed build instructions
+- [docs/EXCLUDED_COMPONENTS.md](docs/EXCLUDED_COMPONENTS.md) -- what is intentionally left out
+
 ---
 
-## ⚡ 30-Second Understanding
+---
+
+## 30-Second Understanding
 
 **What this repo contains**:
-- ROS2 packages for MTC-based manipulation planning
-- LLM agent layer for natural language control
-- Task planning verification (no robot required)
-- Documentation and examples
+- ROS 2 packages for MTC-based manipulation planning
+- LLM agent layer for natural language control (LangGraph + Claude)
+- Plan-only pipeline -- no robot required
+- Real-robot pipeline -- UF850 + RealSense D435i, ChArUco hand-eye calibration,
+  perception-to-planning-scene bridge, MTC execution
+- Pinned external dependencies as git submodules (xarm_ros2, easy_handeye2)
 
 **What is NOT included**:
-- Pre-trained object detection models
-- Hardware calibration data
-- Full hardware reproduction capability
+- Pre-trained object detection model weights (`*.pt`, `*.pth` are gitignored)
+- Hardware-specific calibration data (ship only the example skeletons in [configs/](configs/))
+- Scripts from a separate maniagent project that happen to share the same
+  framework (see [external-deps.md](external-deps.md), Section 4)
 
-**For reviewers**: Run in Plan-Only mode to verify planning architecture.
+**For reviewers**: Run in Plan-Only mode to verify the planning architecture.
+**For robot operators**: See [docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md).
 
 ---
 
@@ -95,99 +110,125 @@ Natural Language Input → Claude AI Agent → Action Tools → ROS2 MTC → (Pl
 
 ---
 
-## 📋 Requirements
+## Requirements
 
-### Minimal Requirements (Plan-Only Mode - Recommended for Reviewers)
-- **OS**: Ubuntu 22.04 LTS
-- **ROS2**: Humble Hawksbill
-- **Python**: 3.10+
-- **MoveIt2**: Task Constructor framework
+### Plan-Only Mode (recommended for reviewers)
+- Ubuntu 22.04 LTS
+- ROS 2 Humble Hawksbill
+- Python 3.10+
+- MoveIt 2 + MoveIt Task Constructor
+- **No robot or camera required**
 
-**This mode requires NO robot hardware.**
+### Real-Robot Mode (additional, on top of the above)
+- UFACTORY UF850 robot arm (tested firmware: ships with v2.0.0-humble driver)
+- Intel RealSense D435i camera
+- Completed ChArUco hand-eye calibration (eye-in-hand *or* eye-to-hand)
+- Anthropic API key (for the LLM agent)
 
-### Additional Requirements (Hardware Execution - Advanced)
-- UFACTORY UF850 robot arm
-- Intel RealSense D435i camera  
-- Hand-eye calibration
-- Pre-trained object detection
+**External dependencies** are documented in one place:
+see [external-deps.md](external-deps.md) for the authoritative submodule /
+apt / pip matrix. The short version is:
 
-**Hardware execution is NOT required for reviewing this work.**
+```bash
+# 1. System ROS 2 + MoveIt + MTC
+sudo apt install ros-humble-desktop ros-humble-moveit-task-constructor-*
 
-### External Dependencies (Plan-Only Mode)
+# 2. Clone this repo WITH its submodules (xarm_ros2, easy_handeye2)
+git clone https://github.com/1douya1/safe-robotic-pouring.git RSS_Workshop
+cd RSS_Workshop
+git submodule update --init --recursive   # pulls xarm_ros2 AND xarm_sdk/cxx
+```
 
-You must install these packages separately:
+### Python Dependencies (Agent layer and/or real robot)
 
-1. **MoveIt Task Constructor** (REQUIRED)
-   ```bash
-   sudo apt install ros-humble-moveit-task-constructor-*
-   ```
+The full pip pin list (with which packages are required for plan-only vs
+real-robot) is **only** maintained in
+[external-deps.md, Section 3](external-deps.md#3-python-packages-pip).
 
-2. **xarm_ros2** (REQUIRED - provides UF850 URDF/SRDF and MoveIt config)
+For the agent / web UI in this repo:
 
-   This package is **not vendored** in this repository. Install from source:
-   ```bash
-   # Option A: clone into your workspace alongside this repo
-   cd <your_workspace>/src
-   git clone https://github.com/xArm-Developer/xarm_ros2.git
-   cd .. && colcon build --symlink-install
+```bash
+pip install -r agent/simple_requirements.txt
+```
 
-   # Option B: separate workspace (source it before running the demo)
-   mkdir -p ~/xarm_ws/src && cd ~/xarm_ws/src
-   git clone https://github.com/xArm-Developer/xarm_ros2.git
-   cd ~/xarm_ws && colcon build --symlink-install
-   source ~/xarm_ws/install/setup.bash
-   ```
+For the real-robot perception layer install in addition:
 
-   Official repo: https://github.com/xArm-Developer/xarm_ros2
-
-3. **find_object_2d / RealSense** (NOT required for plan-only demo)
-   ```bash
-   # Only needed for real hardware with perception:
-   sudo apt install ros-humble-find-object-2d ros-humble-realsense2-*
-   ```
-
-### Python Dependencies (Only for Agent Mode)
-- `langchain-core>=0.3.0`
-- `langchain-anthropic>=0.3.0`
-- `langgraph>=0.2.0`
-- `fastapi>=0.116.0`
-- `python-dotenv>=1.0.0`
-
-See `agent/simple_requirements.txt` for complete list.
-**Not needed for the default plan-only demo.**
+```bash
+pip install opencv-python ultralytics pyrealsense2
+```
 
 ---
 
-## 🛠️ Setup Instructions (Plan-Only Mode)
+## Quick Start (Plan-Only)
 
-**See [REVIEWER_GUIDE.md](REVIEWER_GUIDE.md) for detailed reviewer instructions.**
-
-### Quick Setup (4 steps)
+**See [REVIEWER_GUIDE.md](REVIEWER_GUIDE.md) for the detailed reviewer path.**
 
 ```bash
 # 1. Install system dependencies
 sudo apt install ros-humble-desktop ros-humble-moveit-task-constructor-*
 
-# 2. Install xarm_ros2 (UF850 MoveIt config - NOT vendored in this repo)
-cd <your_workspace>/src
-git clone https://github.com/xArm-Developer/xarm_ros2.git
+# 2. Clone with submodules
+git clone https://github.com/1douya1/safe-robotic-pouring.git RSS_Workshop
+cd RSS_Workshop
+git submodule update --init --recursive
 
-# 3. Build everything
-cd <your_workspace>
+# 3. Build (only the packages we need)
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install
+colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
 
-# 4. Launch plan-only demo (opens RViz with UF850 + demo scene)
+# 4. Launch plan-only demo
 ./scripts/run_demo.sh --plan-only
 ```
 
-**RViz will open** showing the UF850 robot, a table, a cup, and a bowl.
-No robot hardware required.
+RViz opens with the UF850 robot, a table, a cup, and a bowl. Trigger a plan
+from another terminal:
+
+```bash
+source install/setup.bash
+ros2 run mtc_tutorial test_modular_tasks
+```
+
+> Note: `--packages-up-to mtc_tutorial` builds only `mtc_tutorial` and its
+> dependencies (`mtc_interface`, `xarm_moveit_config`, ...), skipping unrelated
+> packages (`realsense_gazebo_plugin`, etc.) that may fail on some systems.
+
+---
+
+## Quick Start (Real Robot)
+
+**Before reading this section, read [docs/SAFETY_CHECKLIST.md](docs/SAFETY_CHECKLIST.md).**
+
+```bash
+# 0. One-time: ensure hand-eye calibration has been done.
+#    See docs/CALIBRATION_PIPELINE.md for the ChArUco procedure.
+
+# 1. Clone + build (same as plan-only)
+git clone https://github.com/1douya1/safe-robotic-pouring.git RSS_Workshop
+cd RSS_Workshop
+git submodule update --init --recursive
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install --packages-up-to mtc_tutorial
+source install/setup.bash
+
+# 2. Python deps for perception + agent
+pip install -r agent/simple_requirements.txt
+pip install opencv-python ultralytics pyrealsense2
+
+# 3. Guided launch plan (prints the 4-terminal command set)
+./scripts/run_demo.sh --real-robot
+```
+
+The guided launcher prints the exact commands to start (in separate terminals):
+the RealSense driver, the UF850 + MoveIt stack, the calibration publisher, the
+detection bridge, and TF sanity checks. Full walkthrough in
+[docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md).
 
 ### Detailed Steps
 
-See [docs/QUICK_START.md](docs/QUICK_START.md) for step-by-step instructions with explanations.
+See [docs/QUICK_START.md](docs/QUICK_START.md) (plan-only) or
+[docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md) (real robot)
+for step-by-step instructions with explanations.
 
 ---
 
@@ -322,41 +363,23 @@ ros2 node list   # Should show move_group if MoveIt is running
 
 ---
 
-## ⚠️ Known Limitations
+## Known Limitations / What is NOT Included
 
-### What's NOT Included
+1. **Hardware-specific data** -- live intrinsics, hand-eye results, and
+   `recorded_poses.yaml` are installation-specific and are gitignored. Only
+   the `configs/*.example.yaml` *skeletons* are tracked.
+2. **Object detection model weights** -- `*.pt`, `*.pth`, `*.onnx` are
+   gitignored. Download or retrain YOLOv8 yourself.
+3. **Isaac Sim integration** -- intentionally out of scope.
+4. **`moveit_task_constructor`, `find_object_2d`, `realsense2_camera` source**
+   -- consumed via `apt` rather than vendored.
+5. **Scripts from a separate maniagent project** (pointcloud_geometry_fitter,
+   publish_camera_root_from_handeye, florence_visual_detection launch) -- these
+   share the same framework but are not part of the RSS pipeline. They are
+   only referenced in [external-deps.md](external-deps.md), Section 4.
 
-**This repository intentionally excludes**:
-
-1. **Hardware-Specific Data** (system-specific):
-   - Hand-eye calibration results
-   - Camera intrinsic parameters
-   - Robot-specific configurations
-   - → Each setup requires individual calibration
-
-2. **Object Detection Models** (large files):
-   - Pre-trained YOLO models
-   - Training datasets  
-   - Detection checkpoints
-   - → Can be added separately if needed
-
-3. **External ROS2 Packages** (maintained upstream):
-   - `xarm_ros2` - Robot driver (install separately)
-   - `find_object_2d` - Detection (optional)
-   - → See [EXECUTION_MODES.md](EXECUTION_MODES.md) for requirements per mode
-
-4. **Experimental Features** (not core to paper):
-   - Isaac Sim integration
-   - Florence-2 visual detection
-   - Alternative perception pipelines
-
-**See [docs/EXCLUDED_COMPONENTS.md](docs/EXCLUDED_COMPONENTS.md) for complete details.**
-
-### Current Constraints
-
-- **Action Library**: The repository uses direct Python-C++ calls (not the separate `mtc_action_library_core` package)
-- **Detection**: Object detection requires external camera setup and calibration
-- **Simulation**: Full MTC task execution in simulation may have limitations due to collision checking
+See [docs/EXCLUDED_COMPONENTS.md](docs/EXCLUDED_COMPONENTS.md) for the
+long-form rationale.
 
 ---
 
@@ -434,6 +457,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Maintainer**: Wenhao Hong <977352965@qq.com>  
-**Last Updated**: February 2025  
-**Version**: 1.1.0
+**Version**: 2.0 (Plan-Only + Real-Robot)
+**Review snapshot**: tag `v1.1.0-review` preserves the original plan-only submission.

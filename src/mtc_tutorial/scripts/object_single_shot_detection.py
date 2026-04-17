@@ -61,9 +61,9 @@ class SingleShotDetection(Node):
         self.declare_parameter('base_frame', 'link_base')
         self.declare_parameter('yolo_model', 'yolov8s.pt')
         self.declare_parameter('confidence_threshold', 0.5)
-        self.declare_parameter('bowl_confidence_threshold', 0.3)  # 降低bowl阈值，提高检测成功率
+        self.declare_parameter('bowl_confidence_threshold', 0.25)  # bowl阈值略降，提升稳定识别
         self.declare_parameter('depth_scale', 0.001)  # RealSense depth unit conversion
-        self.declare_parameter('allowed_classes', ['person', 'cup', 'bottle', 'bowl'])
+        self.declare_parameter('allowed_classes', ['person', 'cup', 'bottle', 'bowl', 'orange', 'apple'])
         self.declare_parameter('save_images', False)  # Save captured images
         self.declare_parameter('image_save_path', '/tmp/detection_results')  # Image save path
         self.declare_parameter('capture_timeout', 10.0)  # Capture timeout in seconds
@@ -73,7 +73,10 @@ class SingleShotDetection(Node):
         self.declare_parameter('display_scale', 1.5)  # UI: enlarge display window content
         self.declare_parameter('enable_display', True)  # 是否启用图像显示
         self.declare_parameter('simple_visualization', False)  # 超简化可视化模式（仅边界框）
-        self.declare_parameter('show_cup_coordinates', True)  # 是否显示杯子坐标信息
+        # 新参数：目标物体坐标显示开关
+        self.declare_parameter('show_target_coordinates', True)  # 是否显示目标物体(cup/bowl/orange/apple)坐标
+        # 兼容旧参数名（deprecated）
+        self.declare_parameter('show_cup_coordinates', True)  # 兼容别名：建议改用 show_target_coordinates
         self.declare_parameter('enable_6d_pose', True)  # 是否启用6D姿态估计（点云拟合）
         self.declare_parameter('pose_quality_threshold', 0.6)  # 6D姿态拟合质量阈值
         
@@ -97,7 +100,19 @@ class SingleShotDetection(Node):
         self.max_detections = int(self.get_parameter('max_detections').value)  # 最大检测数量限制
         self.enable_display = self.get_parameter('enable_display').value
         self.simple_visualization = self.get_parameter('simple_visualization').value
-        self.show_cup_coordinates = self.get_parameter('show_cup_coordinates').value
+        show_target_coordinates = bool(self.get_parameter('show_target_coordinates').value)
+        show_cup_coordinates_legacy = bool(self.get_parameter('show_cup_coordinates').value)
+        # 兼容策略：
+        # - 默认优先使用新参数 show_target_coordinates
+        # - 若用户仅设置了旧参数为 False（新参数保持默认 True），则沿用旧值并提示弃用
+        if show_target_coordinates and (not show_cup_coordinates_legacy):
+            self.show_target_coordinates = False
+            self.get_logger().warn(
+                "Parameter 'show_cup_coordinates' is deprecated. "
+                "Please use 'show_target_coordinates' instead."
+            )
+        else:
+            self.show_target_coordinates = show_target_coordinates
         self.enable_6d_pose = self.get_parameter('enable_6d_pose').value
         self.pose_quality_threshold = self.get_parameter('pose_quality_threshold').value
         
@@ -207,6 +222,8 @@ class SingleShotDetection(Node):
             'cup': (0, 0, 255),         # Red
             'bottle': (255, 255, 0),    # Cyan
             'bowl': (255, 0, 255),      # Magenta
+            'orange': (0, 165, 255),    # Orange
+            'apple': (0, 0, 200),       # Dark Red
             'default': (252, 119, 30)   # Orange
         }
         
@@ -759,22 +776,26 @@ class SingleShotDetection(Node):
         self.get_logger().info(f"  3D Size(m): W={obj.size_3d.x:.3f}, H={obj.size_3d.y:.3f}, D={obj.size_3d.z:.3f}")
         self.get_logger().info(f"  Volume(m³): {obj.volume_3d:.6f}")
     
-    def collect_cup_coordinates(self, detection_result):
-        """收集所有检测到的杯子的link_base坐标信息
+    def collect_target_coordinates(self, detection_result, target_classes=None):
+        """收集指定类别物体的link_base坐标信息
         
         Args:
             detection_result: DetectionResult消息
             
         Returns:
-            list: 包含杯子坐标信息的字典列表
+            list: 包含目标物体坐标信息的字典列表
         """
-        cup_coordinates = []
-        cup_index = 0
+        if target_classes is None:
+            target_classes = {'cup', 'bowl', 'orange', 'apple'}
+
+        object_coordinates = []
+        class_counters = {}
         
         for obj in detection_result.objects:
-            if obj.class_name == 'cup':
-                cup_index += 1
-                display_id = self.scene_id_prefix if cup_index == 1 else f"{self.scene_id_prefix}_{cup_index}"
+            if obj.class_name in target_classes:
+                class_counters[obj.class_name] = class_counters.get(obj.class_name, 0) + 1
+                class_idx = class_counters[obj.class_name]
+                display_id = f"{obj.class_name}_{class_idx}" if class_idx > 1 else obj.class_name
                 
                 coord_info = {
                     "id": display_id,
@@ -797,35 +818,46 @@ class SingleShotDetection(Node):
                         "coordinates_text": "坐标转换失败"
                     })
                 
-                cup_coordinates.append(coord_info)
+                coord_info["class_name"] = obj.class_name
+                object_coordinates.append(coord_info)
         
-        return cup_coordinates
+        return object_coordinates
     
-    def print_cup_coordinates_summary(self, detection_result):
-        """打印杯子坐标信息总结"""
-        cup_coords = self.collect_cup_coordinates(detection_result)
+    def collect_cup_coordinates(self, detection_result):
+        """向后兼容接口：仅收集cup坐标信息"""
+        return self.collect_target_coordinates(detection_result, target_classes={'cup'})
+
+    def print_target_coordinates_summary(self, detection_result, target_classes=None):
+        """打印目标物体坐标信息总结"""
+        target_coords = self.collect_target_coordinates(
+            detection_result, target_classes=target_classes
+        )
         
-        if cup_coords:
+        if target_coords:
             self.get_logger().info("=" * 50)
-            self.get_logger().info("📍 检测到的杯子坐标总结 (link_base坐标系)")
+            self.get_logger().info("📍 检测到的目标物体坐标总结 (link_base坐标系)")
             self.get_logger().info("=" * 50)
             
-            for i, cup in enumerate(cup_coords, 1):
-                self.get_logger().info(f"杯子 #{i} (ID: {cup['id']}):")
-                self.get_logger().info(f"  置信度: {cup['confidence']:.3f}")
-                if cup['transform_valid']:
-                    self.get_logger().info(f"  坐标: {cup['coordinates_text']}")
+            for i, obj in enumerate(target_coords, 1):
+                self.get_logger().info(f"{obj['class_name']} #{i} (ID: {obj['id']}):")
+                self.get_logger().info(f"  置信度: {obj['confidence']:.3f}")
+                if obj['transform_valid']:
+                    self.get_logger().info(f"  坐标: {obj['coordinates_text']}")
                     self.get_logger().info(f"  可用于机器人规划: ✅")
                 else:
-                    self.get_logger().info(f"  坐标: {cup['coordinates_text']}")
+                    self.get_logger().info(f"  坐标: {obj['coordinates_text']}")
                     self.get_logger().info(f"  可用于机器人规划: ❌")
                 self.get_logger().info("")
             
             self.get_logger().info("=" * 50)
         else:
-            self.get_logger().info("📍 未检测到任何杯子")
+            self.get_logger().info("📍 未检测到任何目标物体")
         
-        return cup_coords
+        return target_coords
+
+    def print_cup_coordinates_summary(self, detection_result):
+        """向后兼容接口：仅打印cup坐标总结"""
+        return self.print_target_coordinates_summary(detection_result, target_classes={'cup'})
     
     def visualize_results(self, color_image, detection_result):
         """Visualize detection results with clearer, non-overlapping labels"""
@@ -840,41 +872,47 @@ class SingleShotDetection(Node):
             if self.simple_visualization:
                 self.get_logger().info("🚀 使用超简化可视化模式（仅边界框）")
                 
-                # 收集杯子坐标信息用于显示
-                cup_coords_info = []
+                # 收集目标物体（cup/bowl/orange/apple）坐标信息用于显示
+                target_coords_info = []
                 
                 for i, obj in enumerate(detection_result.objects[:self.max_detections]):
                     if obj.class_name == 'cup':
                         color = (0, 0, 255)  # 红色
-                        
-                        # 收集杯子的link_base坐标信息
-                        if obj.transform_valid:
-                            coord_info = f"Cup({i+1}): X={obj.position_base.x:.3f}, Y={obj.position_base.y:.3f}, Z={obj.position_base.z:.3f}"
-                            cup_coords_info.append(coord_info)
-                            self.get_logger().info(f"📍 {coord_info}")
-                        else:
-                            coord_info = f"Cup({i+1}): Transform failed"
-                            cup_coords_info.append(coord_info)
-                            self.get_logger().warn(f"⚠️ {coord_info}")
-                            
                     elif obj.class_name == 'bottle':
                         color = (255, 255, 0)  # 青色
                     elif obj.class_name == 'bowl':
                         color = (255, 0, 255)  # 品红色
+                    elif obj.class_name == 'orange':
+                        color = (0, 165, 255)  # 橙色
+                    elif obj.class_name == 'apple':
+                        color = (0, 0, 200)  # 深红色
                     else:
                         color = (0, 255, 0)  # 绿色
+
+                    if obj.class_name in ('cup', 'bowl', 'orange', 'apple'):
+                        if obj.transform_valid:
+                            coord_info = (
+                                f"{obj.class_name}({i+1}): X={obj.position_base.x:.3f}, "
+                                f"Y={obj.position_base.y:.3f}, Z={obj.position_base.z:.3f}"
+                            )
+                            target_coords_info.append(coord_info)
+                            self.get_logger().info(f"📍 {coord_info}")
+                        else:
+                            coord_info = f"{obj.class_name}({i+1}): Transform failed"
+                            target_coords_info.append(coord_info)
+                            self.get_logger().warn(f"⚠️ {coord_info}")
                     
                     # 只绘制边界框，无标签
                     cv2.rectangle(vis_image, (obj.bbox_x1, obj.bbox_y1), (obj.bbox_x2, obj.bbox_y2), color, 3)
                 
-                # 简单统计（包含杯子坐标信息）
+                # 简单统计（包含目标物体坐标信息）
                 stats_text = f"Objects: {min(len(detection_result.objects), self.max_detections)}"
                 cv2.putText(vis_image, stats_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
                 
-                # 在图像上显示杯子坐标信息
-                if cup_coords_info:
+                # 在图像上显示目标物体坐标信息
+                if target_coords_info:
                     y_offset = 70  # 起始Y位置
-                    for i, coord_text in enumerate(cup_coords_info[:3]):  # 最多显示3个杯子的坐标
+                    for i, coord_text in enumerate(target_coords_info[:5]):  # 最多显示5个目标物体坐标
                         cv2.putText(vis_image, coord_text, (10, y_offset + i * 25), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
                 
@@ -886,10 +924,10 @@ class SingleShotDetection(Node):
                         cv2.destroyAllWindows()
                         self.get_logger().info("✅ 超简化显示成功")
                         
-                        # 在日志中再次总结杯子坐标
-                        if cup_coords_info:
-                            self.get_logger().info("📍 检测到的杯子坐标总结(link_base):")
-                            for coord_info in cup_coords_info:
+                        # 在日志中再次总结目标物体坐标
+                        if target_coords_info:
+                            self.get_logger().info("📍 检测到的目标物体坐标总结(link_base):")
+                            for coord_info in target_coords_info:
                                 self.get_logger().info(f"   {coord_info}")
                         
                     except Exception as e:
@@ -941,15 +979,21 @@ class SingleShotDetection(Node):
                         fit_indicator = "[FIT:LOW]"
                 
                 # 根据物体类型添加不同的标签信息
-                if obj.class_name == 'cup':
-                    # 杯子显示坐标信息
-                    if obj.transform_valid:
-                        simple_label = f"{obj.class_name}_{display_id} {fit_indicator} (X:{obj.position_base.x:.3f},Y:{obj.position_base.y:.3f},Z:{obj.position_base.z:.3f})"
-                        # 同时在日志中输出坐标
-                        self.get_logger().info(f"📍 杯子坐标 {display_id}: X={obj.position_base.x:.3f}, Y={obj.position_base.y:.3f}, Z={obj.position_base.z:.3f}")
+                if obj.class_name in ('cup', 'bowl', 'orange', 'apple'):
+                    # 关键目标物体：可选是否在标签中显示坐标
+                    if self.show_target_coordinates:
+                        if obj.transform_valid:
+                            simple_label = f"{obj.class_name}_{display_id} {fit_indicator} (X:{obj.position_base.x:.3f},Y:{obj.position_base.y:.3f},Z:{obj.position_base.z:.3f})"
+                            # 同时在日志中输出坐标
+                            self.get_logger().info(
+                                f"📍 {obj.class_name}坐标 {display_id}: "
+                                f"X={obj.position_base.x:.3f}, Y={obj.position_base.y:.3f}, Z={obj.position_base.z:.3f}"
+                            )
+                        else:
+                            simple_label = f"{obj.class_name}_{display_id} {fit_indicator} (坐标转换失败)"
+                            self.get_logger().warn(f"⚠️ {obj.class_name} {display_id}: 坐标转换失败")
                     else:
-                        simple_label = f"{obj.class_name}_{display_id} {fit_indicator} (坐标转换失败)"
-                        self.get_logger().warn(f"⚠️ 杯子 {display_id}: 坐标转换失败")
+                        simple_label = f"{obj.class_name}_{display_id} {fit_indicator}"
                 else:
                     # 其他物体显示类别、ID和拟合状态
                     simple_label = f"{obj.class_name}_{display_id} {fit_indicator}"
@@ -957,19 +1001,62 @@ class SingleShotDetection(Node):
                 # 简单定位：固定在边界框左上角偏移处，不做重叠检测
                 label_x = max(5, obj.bbox_x1)
                 label_y = max(20, obj.bbox_y1 - 5)
-                
-                # 绘制简单的黑色背景
-                (text_w, text_h), _ = cv2.getTextSize(simple_label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
-                cv2.rectangle(vis_image, (label_x-2, label_y-text_h-2), (label_x+text_w+2, label_y+2), (0, 0, 0), -1)
-                
-                # 绘制白色文字
-                cv2.putText(vis_image, simple_label, (label_x, label_y), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+
+                # orange/apple/bowl 使用更大字号和同类颜色背景，提升可读性
+                emphasized = obj.class_name in ("orange", "apple", "bowl")
+                label_font_scale = 0.68 if emphasized else 0.48
+                label_thickness = 2 if emphasized else 1
+                label_pad = 4 if emphasized else 2
+                label_bg = color if emphasized else (0, 0, 0)
+
+                (text_w, text_h), baseline = cv2.getTextSize(
+                    simple_label, cv2.FONT_HERSHEY_SIMPLEX, label_font_scale, label_thickness
+                )
+                cv2.rectangle(
+                    vis_image,
+                    (label_x - label_pad, label_y - text_h - baseline - label_pad),
+                    (label_x + text_w + label_pad, label_y + label_pad),
+                    label_bg,
+                    -1,
+                )
+
+                # 绘制白色文字（抗锯齿）
+                cv2.putText(
+                    vis_image,
+                    simple_label,
+                    (label_x, label_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    label_font_scale,
+                    (255, 255, 255),
+                    label_thickness,
+                    cv2.LINE_AA,
+                )
             
             # 🚀 极简统计信息
             simple_stats = f"Objects: {accepted_index}"
             h, w = vis_image.shape[:2]
-            cv2.putText(vis_image, simple_stats, (10, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            stats_x, stats_y = 10, h - 22
+            # 左下角统计文字放大并加描边，提升清晰度
+            cv2.putText(
+                vis_image,
+                simple_stats,
+                (stats_x, stats_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                (0, 0, 0),
+                4,
+                cv2.LINE_AA,
+            )
+            cv2.putText(
+                vis_image,
+                simple_stats,
+                (stats_x, stats_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                (0, 255, 0),
+                2,
+                cv2.LINE_AA,
+            )
             
             self.get_logger().info(f"🎨 简化可视化完成: 显示 {accepted_index}/{detection_result.total_objects} 个物体")
             
@@ -1049,13 +1136,16 @@ class SingleShotDetection(Node):
             self.detection_pub.publish(detection_result)
             self.get_logger().info("Detection results published")
             
-            # 📍 专门输出杯子坐标信息总结（如果启用）
-            if self.show_cup_coordinates:
-                cup_coords = self.print_cup_coordinates_summary(detection_result)
+            # 📍 输出目标物体（cup/bowl/orange/apple）坐标信息总结（如果启用）
+            if self.show_target_coordinates:
+                target_coords = self.print_target_coordinates_summary(detection_result)
             else:
-                cup_coords = self.collect_cup_coordinates(detection_result)  # 仅收集，不打印详细信息
-                if cup_coords:
-                    self.get_logger().info(f"📍 检测到 {len(cup_coords)} 个杯子，使用 show_cup_coordinates=true 查看详细坐标")
+                target_coords = self.collect_target_coordinates(detection_result)  # 仅收集，不打印详细信息
+                if target_coords:
+                    self.get_logger().info(
+                        f"📍 检测到 {len(target_coords)} 个目标物体(cup/bowl/orange/apple)，"
+                        "使用 show_target_coordinates=true 查看详细坐标"
+                    )
             
             # Visualize results - 添加额外检查
             if self.enable_display:

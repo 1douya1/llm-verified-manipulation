@@ -89,17 +89,31 @@ agent/detector/
 *.db3
 recordings/
 datasets/
+# YOLO / other ML model weights -- regenerate or download locally
+*.pt
+*.pth
+*.onnx
+*.pb
+*.weights
 models/*.pth
 models/*.pt
 models/*.onnx
 models/*.pb
-*.weights
 
 # Calibration Data (Hardware-specific)
+# The *.example.yaml templates under configs/ ARE tracked; every other
+# calibration artifact MUST be regenerated locally and is gitignored.
 **/calibration_results/
 **/hand_eye_calibration.yaml
 **/camera_intrinsics.yaml
+**/*camera_intrinsics*.yaml
 recorded_poses.yaml
+recorded_poses*.yaml
+handeye_result*.yaml
+# Easy_handeye2 caches calibrations under ~/.ros/easy_handeye2_calibrations/
+# by default; if you copy them into the workspace, make sure they end with
+# .calib -- which is never tracked.
+*.calib
 
 # Temporary Files
 *.tmp

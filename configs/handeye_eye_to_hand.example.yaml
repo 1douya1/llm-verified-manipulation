@@ -1,0 +1,47 @@
+# ============================================================
+# Eye-to-Hand hand-eye calibration (link_base -> camera_color_optical_frame)
+# ============================================================
+#
+# No reference data is shipped for eye-to-hand -- the mount geometry is
+# installation-specific (every fixed-camera setup has a different tripod /
+# rail / bracket offset). Populating this file with arbitrary numbers would
+# produce silently wrong TF, so we ship only the SKELETON with placeholder
+# zeros.
+#
+# You MUST run the ChArUco eye-to-hand pipeline documented in
+# docs/CALIBRATION_PIPELINE.md before first use. The easy_handeye2
+# workflow is:
+#
+#   # One-time calibration (records poses, solves AX=XB):
+#   ros2 launch mtc_tutorial charuco_handeye_calibration.launch.py \
+#       calibration_name:=charuco_eye_to_hand_1
+#
+#   # After you press "Save" in the easy_handeye2 GUI:
+#   ros2 launch mtc_tutorial charuco_handeye_publish.launch.py \
+#       calibration_name:=charuco_eye_to_hand_1
+#
+# If you prefer a STATIC_TRANSFORM_PUBLISHER-style publish, copy the
+# solved translation + Euler angles into the bl_* launch arguments of
+# charuco_handeye_publish.launch.py and set use_static_extrinsics:=true.
+# ============================================================
+calibration:
+  name: "charuco_eye_to_hand_1"
+  type: "eye_to_hand"              # easy_handeye2 calls this 'eye_on_base'
+  robot_base_frame: "link_base"
+  robot_effector_frame: "link_eef"
+  tracking_base_frame: "camera_color_optical_frame"
+  tracking_marker_frame: "charuco_board"
+
+# Placeholder transform -- FILL IN AFTER CALIBRATION.
+# Leaving these zeros will cause link_base and the camera to coincide, which
+# will produce obviously wrong collision geometry in the planning scene.
+transform:
+  translation:
+    x: 0.0    # FILL IN after calibration
+    y: 0.0    # FILL IN after calibration
+    z: 0.0    # FILL IN after calibration
+  rotation:
+    x: 0.0    # FILL IN after calibration
+    y: 0.0    # FILL IN after calibration
+    z: 0.0    # FILL IN after calibration
+    w: 1.0    # identity -- replace

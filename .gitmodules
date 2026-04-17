@@ -1,0 +1,6 @@
+[submodule "src/xarm_ros2"]
+	path = src/xarm_ros2
+	url = https://github.com/xArm-Developer/xarm_ros2.git
+[submodule "src/easy_handeye2"]
+	path = src/easy_handeye2
+	url = https://github.com/marcoesposito1988/easy_handeye2.git

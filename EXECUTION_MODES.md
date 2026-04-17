@@ -1,216 +1,205 @@
 # Execution Modes
 
-This repository supports three execution modes with different hardware and dependency requirements.
+This repository supports three execution modes with different hardware and
+dependency requirements. Plan-Only is the reviewer-friendly default;
+Real Robot is the full paper reproduction.
 
 ---
 
-## Mode 1: Plan-Only / Dry-Run (DEFAULT) ⭐
+## Mode 1: Plan-Only / Dry-Run (DEFAULT)
 
-**Purpose**: Verify system architecture and planning capabilities without robot hardware.
+**Purpose**: Verify system architecture and planning capabilities without
+robot hardware.
 
 **What it does**:
-- Builds ROS2 workspace
-- Launches MTC planning servers
-- Tests task planning pipeline
-- Prints planning results to console
-- **Does NOT execute on real hardware**
+- Builds the ROS 2 workspace.
+- Launches MoveIt 2 for UF850 with fake controllers.
+- Opens RViz with the robot model + demo planning scene (table, cup, bowl).
+- Starts the MTC modular task server.
+- Triggering a plan produces motion plans that are visualized but not sent
+  to any real hardware.
 
 **Requirements**:
-- ROS2 Humble
-- MoveIt2
-- MTC (MoveIt Task Constructor)
-- Python dependencies (for agent layer)
-
-**Use this mode if**:
-- You are a reviewer verifying the system
-- You don't have robot hardware
-- You want to understand the planning architecture
+- ROS 2 Humble + MoveIt 2 + MTC
+- `xarm_ros2` (provided as a git submodule -- `git submodule update --init --recursive`)
+- Python 3.10+
 
 **How to run**:
-```bash
-# Build workspace
-colcon build --symlink-install
-source install/setup.bash
 
-# Run plan-only demo (NO robot required)
-./scripts/run_demo.sh
-# Select option 2: "Dry-run Mode"
+```bash
+./scripts/run_demo.sh --plan-only
+# In another terminal:
+source install/setup.bash
+ros2 run mtc_tutorial test_modular_tasks
 ```
 
-**Expected output**:
-- Task planning succeeds/fails
-- Console output showing planning stages
-- No robot motion
+Expected output:
+- RViz shows planned trajectory preview.
+- Console prints per-stage planning results.
+- No robot motion.
 
 ---
 
 ## Mode 2: Fake Execution (OPTIONAL)
 
-**Purpose**: Test with MoveIt fake controllers (simulated joint states).
+**Purpose**: Same as Plan-Only but with MoveIt fake controllers that publish
+fake joint states, so the robot model in RViz actually moves through the
+plan.
 
-**What it does**:
-- Same as Plan-Only mode
-- Additionally publishes fake joint states
-- Visualizes in RViz
-- Still no real robot motion
-
-**Requirements**:
-- Same as Plan-Only mode
-- `xarm_ros2` package (for robot description)
-
-**Use this mode if**:
-- You want to visualize planning in RViz
-- You want to test joint-space trajectories
-- You want to verify collision checking
+**Requirements**: same as Plan-Only.
 
 **How to run**:
+
 ```bash
-# Terminal 1: Launch fake controllers
-source /opt/ros/humble/setup.bash
+# Terminal 1: fake controller + RViz
 ros2 launch xarm_moveit_config xarm_moveit_fake.launch.py \
     dof:=6 robot_type:=xarm
 
-# Terminal 2: Run agent
+# Terminal 2: agent dry-run
 source install/setup.bash
 cd agent
-python3 agent_app.py
+python3 agent_app.py --dry-run
 ```
 
-**Expected output**:
-- RViz shows robot model
-- Planned trajectories visualized
-- Fake joint states published
+Expected output:
+- RViz shows the robot executing the plan against fake joint states.
+- No real hardware communication.
 
 ---
 
-## Mode 3: Real Robot Execution (ADVANCED)
+## Mode 3: Real Robot Execution
 
-**Purpose**: Execute on real hardware (NOT EXPECTED for reviewers).
+**Purpose**: End-to-end paper reproduction. Requires UF850 + RealSense D435i
+and a completed ChArUco hand-eye calibration.
 
-**What it does**:
-- Full hardware execution
-- Requires calibrated system
-- Requires object detection
-- Safety-critical
+**Safety first**: Read [docs/SAFETY_CHECKLIST.md](docs/SAFETY_CHECKLIST.md)
+BEFORE any motion. Keep the E-stop within reach. Start with reduced
+velocity scaling.
 
-**Requirements**:
-- UFACTORY UF850 robot arm
-- Intel RealSense D435i camera
-- Calibrated hand-eye transformation
-- Real-time object detection
-- Anthropic API key (for LLM agent)
+**Prerequisites**:
+- UF850 arm, accessible on the lab network
+- Intel RealSense D435i mounted (eye-in-hand OR eye-to-hand)
+- ChArUco calibration completed -- see
+  [docs/CALIBRATION_PIPELINE.md](docs/CALIBRATION_PIPELINE.md)
+- `pip install` the perception extras (`opencv-python`, `ultralytics`,
+  `pyrealsense2`) in addition to `agent/simple_requirements.txt`
+- Anthropic API key (for the LLM agent)
 
-**Use this mode if**:
-- You have the exact hardware setup
-- System is fully calibrated
-- You accept hardware risks
+**How to run** -- the `--real-robot` flag prints a guided 4-terminal plan:
 
-**How to run**:
 ```bash
-# Terminal 1: Launch robot + MoveIt
-ros2 launch xarm_moveit_config xarm_moveit_realmove.launch.py \
-    robot_ip:=192.168.1.xxx dof:=6 robot_type:=xarm
-
-# Terminal 2: Launch object detection
-ros2 launch mtc_tutorial detection_only.launch.py
-
-# Terminal 3: Run agent
-source install/setup.bash
-cd agent
-python3 agent_app.py
+./scripts/run_demo.sh --real-robot
 ```
 
-**⚠️ Safety Warning**:
-- Ensure workspace is clear
-- Keep emergency stop accessible
-- Monitor robot motion continuously
-- Start with slow velocity scaling
+It tells you to start these in separate terminals (full walkthrough in
+[docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md)):
+
+```bash
+# Terminal 1 -- RealSense driver
+ros2 launch realsense2_camera rs_launch.py align_depth.enable:=true enable_sync:=true
+
+# Terminal 2 -- UF850 + MoveIt + MTC action server
+export QT_ENABLE_HIGHDPI_SCALING=0
+ros2 launch mtc_tutorial pour_demo.launch.py
+
+# Terminal 3a -- Replay hand-eye calibration (or run calibration first time)
+ros2 launch mtc_tutorial charuco_handeye_publish.launch.py
+
+# Terminal 3b -- Detection + planning-scene bridge
+ros2 launch mtc_tutorial detection_only.launch.py
+ros2 run mtc_tutorial detection_to_planning_scene.py
+
+# Terminal 4 -- TF sanity checks (optional but recommended on first run)
+ros2 run tf2_ros tf2_echo link_base camera_color_optical_frame
+
+# Finally: run the LLM agent
+cd agent && python3 agent_app.py
+```
 
 ---
 
 ## Comparison Table
 
-| Feature | Plan-Only (DEFAULT) | Fake Execution | Real Robot |
-|---------|---------------------|----------------|------------|
-| **Robot hardware** | ❌ Not required | ❌ Not required | ✅ Required |
-| **xarm_ros2** | ❌ Optional* | ✅ Required | ✅ Required |
-| **Calibration** | ❌ Not needed | ❌ Not needed | ✅ Required |
-| **Object detection** | ❌ Not needed | ❌ Not needed | ✅ Required |
-| **Anthropic API key** | ⚠️ Optional** | ⚠️ Optional** | ✅ Required |
-| **Planning verification** | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Motion execution** | ❌ No | ⚠️ Simulated | ✅ Real |
-| **Reviewer-friendly** | ✅ YES | ✅ Yes | ❌ NO |
-
-\* xarm_ros2 only needed if you want to verify URDF/SRDF loading  
-\*\* API key optional if testing without LLM agent
+| Feature | Plan-Only | Fake Execution | Real Robot |
+|---------|-----------|----------------|------------|
+| Robot hardware | not required | not required | required |
+| `xarm_ros2` submodule | required | required | required |
+| Hand-eye calibration | not used | not used | required |
+| Camera + intrinsics | not used | not used | required |
+| Object detection (YOLO) | not used | not used | required |
+| Anthropic API key | optional (agent dry-run) | optional | required |
+| Planning verification | yes | yes | yes |
+| Motion execution | no | simulated | real |
+| Reviewer-friendly | yes | yes | no |
 
 ---
 
 ## Recommended for RSS Reviewers
 
-**We recommend Mode 1 (Plan-Only / Execute-Run)** because:
-
-1. ✅ Minimal dependencies
-2. ✅ No hardware required
-3. ✅ Demonstrates system architecture
-4. ✅ Verifies planning pipeline
-5. ✅ Safe and reproducible
-
-The goal of this repository is **transparency and reproducibility of the software architecture**, not full hardware reproduction.
+Mode 1 (Plan-Only / Dry-Run). Minimal dependencies, no hardware, and still
+exercises the same MTC planning stack, agent-to-action-tool glue, and
+planning-scene assembly that drives the real robot. The reviewer tag
+`v1.1.0-review` freezes exactly this mode for first-round review.
 
 ---
 
 ## Implementation Details
 
-### Plan-Only Mode Implementation
+### Plan-Only Mode
 
-The plan-only mode works by:
-1. Building MTC task graphs
-2. Running motion planning
-3. Checking for valid solutions
-4. Printing results without execution
+- `scripts/run_demo.sh --plan-only` invokes `plan_only_demo.launch.py`.
+- `plan_only_demo.launch.py` starts `move_group`, loads MoveIt config from
+  the `xarm_ros2` submodule, injects the `demo_scene.yaml` collision
+  objects, and starts the MTC modular task server.
+- `ros2 run mtc_tutorial test_modular_tasks` triggers a pick plan; nothing
+  is sent to a controller.
 
-Key files:
-- `src/mtc_tutorial/src/modular_task_builders.cpp` - Task planning logic
-- `agent/action_tools.py` - Agent action abstraction
-- `agent/agent_app.py --dry-run` - Dry-run flag
+### Fake Execution Mode
 
-### Fake Execution Mode Implementation
+- Uses MoveIt's `moveit_fake_controller_manager` -- see
+  `xarm_moveit_config/launch/xarm_moveit_fake.launch.py` in the
+  `src/xarm_ros2` submodule.
+- Joint states are synthesized from the planned trajectory; there is no
+  hardware interface.
 
-Uses MoveIt's fake controller manager:
-- Publishes fake joint states
-- Updates planning scene
-- No real hardware communication
+### Real Robot Mode
 
-Configured in xarm_ros2 launch files.
-
-### Real Robot Mode Implementation
-
-Full pipeline:
-- ROS2 hardware interface → xarm_ros2 driver
-- Object detection → planning scene injection
-- LLM agent → MTC planning → trajectory execution
+- The `pour_demo.launch.py` launch loads the real UF850 driver from
+  `src/xarm_ros2` and brings up MoveIt with the hardware interface.
+- `charuco_handeye_publish.launch.py` publishes the `link_base ->
+  camera_color_optical_frame` transform (either via `easy_handeye2`'s stock
+  publisher or as a static transform, depending on `use_static_extrinsics`).
+- `detection_to_planning_scene.py` subscribes to the YOLO detection topic
+  and converts detections into MoveIt planning-scene objects.
+- The agent (`agent/agent_app.py`) uses LangGraph to translate natural
+  language into `action_tools` calls, which ultimately invoke the MTC
+  action server from terminal 2.
 
 ---
 
 ## FAQ
 
-**Q: Which mode should reviewers use?**  
-A: Mode 1 (Plan-Only / Dry-Run). It requires minimal setup and demonstrates the system architecture.
+**Q: Which mode should reviewers use?**
+A: Mode 1 (Plan-Only). It demonstrates the full architecture without
+requiring the lab hardware.
 
-**Q: Can I reproduce the full hardware experiments?**  
-A: Not without the exact hardware setup (UF850 robot + RealSense camera + calibration). This repo focuses on software transparency.
+**Q: Can I reproduce the full hardware experiments?**
+A: Yes -- start at [docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md).
+You will need the same hardware (UF850 + D435i) or a close equivalent,
+and you will need to run your own hand-eye calibration.
 
-**Q: Why is calibration not included?**  
-A: Calibration is hardware-specific. Each setup requires individual calibration. See `docs/EXCLUDED_COMPONENTS.md`.
+**Q: Why is calibration not shipped?**
+A: Every physical setup has its own camera mount, lens, and table
+geometry. Shipping someone else's calibration would silently produce
+incorrect TF. Only the *example* skeleton is in the repo; you provide
+the numbers yourself.
 
-**Q: Do I need the Anthropic API key?**  
-A: Only for testing the LLM agent layer. Planning-only mode can work without it.
-
-**Q: Is the agent layer required?**  
-A: No. The MTC task builders (`src/mtc_tutorial/`) can be used standalone without the agent layer.
+**Q: Do I need the Anthropic API key?**
+A: Only for the LLM agent. You can drive the MTC pipeline directly through
+`action_tools.py` or through the `mtc_action_library` baseline (P1.1 in
+the v2.0 release) if you want a deterministic, LLM-free path.
 
 ---
 
-**Last Updated**: 2026-02-05  
-**Recommended Mode for Reviewers**: Plan-Only / Dry-Run (Mode 1)
+**Version**: 2.0 (dual-track Plan-Only + Real-Robot)
+**Reviewer snapshot**: tag `v1.1.0-review`

@@ -1,0 +1,78 @@
+# ============================================================
+# RealSense D435i intrinsics (ROS camera_info layout)
+# ============================================================
+#
+# IMPORTANT: These intrinsics are SAMPLE VALUES from the author's D435i and
+# are kept here only so the pipeline can be end-to-end tested without a
+# camera. You MUST re-calibrate and verify your own camera intrinsics
+# BEFORE any hand-eye calibration or real-robot run.
+#
+# How to regenerate for your camera:
+#   1. Start the camera:
+#        ros2 launch realsense2_camera rs_launch.py align_depth.enable:=true
+#   2. Use the standard ROS 2 camera_calibration tool with a checkerboard:
+#        ros2 run camera_calibration cameracalibrator \
+#          --size 7x9 --square 0.025 \
+#          image:=/camera/camera/color/image_raw \
+#          camera:=/camera/camera/color
+#   3. Copy the output YAML into your own configs/ file (do NOT commit it).
+#
+# DO NOT commit a replacement file with your real data -- this example is
+# the only YAML of this kind that lives in the repo. See `.gitignore`.
+# ============================================================
+camera_matrix:
+  cols: 3
+  rows: 3
+  data:
+  - 569.3621522068521
+  - 0.0
+  - 330.4381317809184
+  - 0.0
+  - 563.8730103685718
+  - 187.17507461962154
+  - 0.0
+  - 0.0
+  - 1.0
+camera_name: realsense_camera
+distortion_coefficients:
+  cols: 5
+  rows: 1
+  data:
+  - 0.023269850582438432
+  - -0.3885087460221688
+  - -0.03507653254864753
+  - 0.010467470468189596
+  - 0.559444776729344
+distortion_model: plumb_bob
+image_height: 480
+image_width: 640
+projection_matrix:
+  cols: 4
+  rows: 3
+  data:
+  - 569.3621522068521
+  - 0.0
+  - 330.4381317809184
+  - 0.0
+  - 0.0
+  - 563.8730103685718
+  - 187.17507461962154
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  - 0.0
+rectification_matrix:
+  cols: 3
+  rows: 3
+  data:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+rms_error: 0.19811558067689694

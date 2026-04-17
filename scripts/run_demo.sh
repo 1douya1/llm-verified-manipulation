@@ -22,8 +22,10 @@
 #        xarm_ros2/
 #
 #  Usage:
-#    ./scripts/run_demo.sh              # interactive
-#    ./scripts/run_demo.sh --plan-only  # skip menu
+#    ./scripts/run_demo.sh               # interactive mode menu
+#    ./scripts/run_demo.sh --plan-only   # MoveIt2 + RViz + MTC (no hardware)
+#    ./scripts/run_demo.sh --agent       # plan-only + LLM agent dry-run
+#    ./scripts/run_demo.sh --real-robot  # real-robot launch plan (needs hw)
 #    ./scripts/run_demo.sh --help
 #
 # ============================================================
@@ -73,18 +75,26 @@ info() { echo -e "  ${CYAN}[..]${NC} $*"; }
 MODE=""
 for arg in "$@"; do
     case "$arg" in
-        --plan-only) MODE="plan-only" ;;
-        --agent)     MODE="agent" ;;
+        --plan-only)   MODE="plan-only" ;;
+        --agent)       MODE="agent" ;;
+        --real-robot)  MODE="real-robot" ;;
         --help|-h)
-            echo "Usage: $0 [--plan-only | --agent | --help]"
+            echo "Usage: $0 [--plan-only | --agent | --real-robot | --help]"
             echo ""
-            echo "  --plan-only   Launch MoveIt2 + RViz + MTC demo (default)"
-            echo "  --agent       Launch with LLM agent (requires Python deps)"
-            echo "  --help        Show this message"
+            echo "  --plan-only    MoveIt2 + RViz + MTC demo (no hardware)"
+            echo "  --agent        Plan-only pipeline + LLM agent dry-run"
+            echo "  --real-robot   Print the guided real-robot launch plan"
+            echo "                 (see docs/REAL_ROBOT_QUICK_START.md)"
+            echo "  --help         Show this message"
             exit 0
             ;;
     esac
 done
+
+# ---------- early-exit for real-robot: delegate to the real_robot helper ----------
+if [ "$MODE" = "real-robot" ]; then
+    exec "$SCRIPT_DIR/real_robot/start_hardware.sh" --ws "$REPO_DIR"
+fi
 
 echo ""
 echo "========================================================"
@@ -135,14 +145,29 @@ if ros2 pkg list 2>/dev/null | grep -q "xarm_moveit_config"; then
     XARM_AVAILABLE=true
 fi
 
-# Check if xarm_ros2 source exists somewhere under the workspace
+# Preferred location is the submodule inside this repo ($REPO_DIR/src/xarm_ros2).
+# Fall back to a sibling clone in the workspace if the user arranged it that way.
 XARM_SRC=""
-for candidate in "$WS_ROOT/src/xarm_ros2" "$REPO_DIR/src/xarm_ros2"; do
-    if [ -d "$candidate/xarm_moveit_config" ]; then
+XARM_SUBMODULE_DIR="$REPO_DIR/src/xarm_ros2"
+for candidate in "$XARM_SUBMODULE_DIR" "$WS_ROOT/src/xarm_ros2"; do
+    if [ -f "$candidate/xarm_moveit_config/package.xml" ]; then
         XARM_SRC="$candidate"
         break
     fi
 done
+
+# Submodule directory exists but is empty (submodule not initialized)
+if [ -z "$XARM_SRC" ] && [ -d "$XARM_SUBMODULE_DIR" ] && [ -z "$(ls -A "$XARM_SUBMODULE_DIR" 2>/dev/null)" ]; then
+    err "src/xarm_ros2 is an empty submodule directory."
+    echo ""
+    echo "      Initialize the submodules first:"
+    echo ""
+    echo "        cd $REPO_DIR"
+    echo "        git submodule update --init --recursive"
+    echo ""
+    echo "      Then re-run this script."
+    exit 1
+fi
 
 if [ "$XARM_AVAILABLE" = false ] && [ -n "$XARM_SRC" ]; then
     warn "xarm_ros2 source found at $XARM_SRC but not built yet."
@@ -150,13 +175,10 @@ if [ "$XARM_AVAILABLE" = false ] && [ -n "$XARM_SRC" ]; then
 elif [ "$XARM_AVAILABLE" = false ]; then
     err "xarm_moveit_config not found (from xarm_ros2)."
     echo ""
-    echo "      Clone xarm_ros2 and init its submodules:"
+    echo "      This repo ships xarm_ros2 as a git submodule. Initialize it:"
     echo ""
-    echo "        cd $WS_ROOT/src"
-    echo "        git clone https://github.com/xArm-Developer/xarm_ros2.git"
-    echo "        cd xarm_ros2"
-    echo "        git submodule sync"
-    echo "        git submodule update --init --remote"
+    echo "        cd $REPO_DIR"
+    echo "        git submodule update --init --recursive"
     echo ""
     echo "      Then re-run this script."
     exit 1
@@ -190,9 +212,8 @@ if [ "$MTC_BUILT" = false ]; then
     if [ ! -f "$WS_ROOT/install/setup.bash" ]; then
         err "Build failed. Check the output above for errors."
         echo ""
-        echo "      Common fix for xarm_ros2 submodule errors:"
-        echo "        cd $XARM_SRC"
-        echo "        git submodule sync && git submodule update --init --remote"
+        echo "      Common fix for xarm_ros2 nested-submodule errors:"
+        echo "        cd $REPO_DIR && git submodule update --init --recursive"
         echo "        cd $WS_ROOT && colcon build --symlink-install --packages-up-to mtc_tutorial"
         exit 1
     fi
@@ -213,8 +234,7 @@ ok "mtc_tutorial + mtc_interface packages"
 if ! ros2 pkg list 2>/dev/null | grep -q "xarm_moveit_config"; then
     err "xarm_moveit_config still not available after build."
     echo "      Common fix:"
-    echo "        cd $XARM_SRC"
-    echo "        git submodule sync && git submodule update --init --remote"
+    echo "        cd $REPO_DIR && git submodule update --init --recursive"
     echo "        cd $WS_ROOT && colcon build --symlink-install --packages-up-to mtc_tutorial"
     exit 1
 fi
@@ -236,7 +256,11 @@ if [ -z "$MODE" ]; then
     echo "  2) Agent Dry-Run - LLM agent integration test"
     echo "     Requires Python deps + API key."
     echo ""
-    echo "  3) Cancel"
+    echo "  3) Real Robot - Print the guided launch plan for hardware"
+    echo "     Requires UF850 + RealSense D435i + completed calibration."
+    echo "     See docs/REAL_ROBOT_QUICK_START.md."
+    echo ""
+    echo "  4) Cancel"
     echo ""
     read -rp "  Enter choice [1]: " CHOICE
     CHOICE=${CHOICE:-1}
@@ -245,7 +269,8 @@ if [ -z "$MODE" ]; then
     case $CHOICE in
         1) MODE="plan-only" ;;
         2) MODE="agent" ;;
-        3) echo "Cancelled."; exit 0 ;;
+        3) exec "$SCRIPT_DIR/real_robot/start_hardware.sh" --ws "$WS_ROOT" ;;
+        4) echo "Cancelled."; exit 0 ;;
         *) err "Invalid choice: $CHOICE"; exit 1 ;;
     esac
 fi

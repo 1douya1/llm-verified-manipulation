@@ -1,0 +1,65 @@
+# ============================================================
+# Calibration waypoints example (UF850 eye-to-hand)
+# ============================================================
+#
+# This file describes the joint poses the arm visits during an automated
+# eye-to-hand calibration. All angles are in DEGREES and correspond to the
+# six UF850 joints [j1, j2, j3, j4, j5, j6].
+#
+# Usage:
+#   1. Copy to my_waypoints.yaml.
+#   2. Teach each pose manually and make sure the ChArUco board is fully
+#      visible in the RealSense colour image from each pose.
+#   3. Adjust the joint values below to match what you taught.
+#   4. Launch:
+#        ros2 launch mtc_tutorial auto_handeye_calibration.launch.py \
+#            config_file:=/absolute/path/to/my_waypoints.yaml
+#
+# The 18 waypoints below produce a 3x3 coverage grid plus six additional
+# poses for yaw/pitch diversity. More poses do not always help -- aim for
+# 15 - 25 DIVERSE poses.
+# ============================================================
+
+robot:
+  ip: "192.168.1.117"      # Replace with your arm's IP
+  speed: 30                 # mm/s during calibration moves
+  acceleration: 100         # mm/s^2
+
+calibration:
+  name: "custom_eye_to_hand"
+  algorithm: "Tsai-Lenz"
+
+waypoints:
+  generation_method: "predefined"
+  predefined_joints:
+    # Core 3x3 coverage grid
+    - [0.0, -30.0, 60.0, 0.0, 70.0, 0.0]       # centre
+    - [30.0, -30.0, 60.0, 0.0, 70.0, 0.0]      # right
+    - [-30.0, -30.0, 60.0, 0.0, 70.0, 0.0]     # left
+    - [0.0, -40.0, 70.0, 0.0, 70.0, 0.0]       # high centre
+    - [0.0, -20.0, 50.0, 0.0, 70.0, 0.0]       # low centre
+    - [30.0, -40.0, 70.0, 0.0, 70.0, 0.0]      # high right
+    - [-30.0, -40.0, 70.0, 0.0, 70.0, 0.0]     # high left
+    - [30.0, -20.0, 50.0, 0.0, 70.0, 0.0]      # low right
+    - [-30.0, -20.0, 50.0, 0.0, 70.0, 0.0]     # low left
+
+    # Extra yaw/pitch diversity
+    - [15.0, -35.0, 65.0, 10.0, 70.0, 5.0]
+    - [-15.0, -35.0, 65.0, -10.0, 70.0, -5.0]
+    - [20.0, -25.0, 55.0, 5.0, 75.0, 10.0]
+    - [-20.0, -25.0, 55.0, -5.0, 75.0, -10.0]
+    - [10.0, -38.0, 68.0, 0.0, 65.0, 0.0]
+    - [-10.0, -38.0, 68.0, 0.0, 65.0, 0.0]
+
+quality:
+  min_charuco_corners: 10
+  max_detection_attempts: 3
+  wait_time_per_pose: 2.5
+  min_samples_required: 15
+
+safety:
+  move_timeout: 15.0
+  check_error_code: true
+  # UF850 joint limits in degrees -- do NOT exceed these when teaching
+  max_joint_angles: [180, 118, 225, 180, 97, 180]
+  min_joint_angles: [-180, -118, -11, -180, -97, -180]
