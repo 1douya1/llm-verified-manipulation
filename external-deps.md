@@ -20,12 +20,12 @@ They are listed here so the dependency matrix is fully self-describing.
 | `mtc_action_library_core` | C++ shared library | `mtc_action_library_py` (and any external consumer) | Reusable atomic-action MTC stage builders. Independent of the MCP main chain (see `docs/ACTION_LIBRARY.md`). |
 | `mtc_action_library_py` | pybind11 + Python | downstream test scripts only | Python bindings to `mtc_action_library_core`. The agent (`agent/`) does NOT depend on this and must not import it. |
 
-Build everything in one go (skips the Gazebo-only RealSense plugin, which
-often breaks on very new CMake — see `docs/RELEASE_NOTES_v2.0.0.md`,
+Build everything in one go (skips Gazebo-only packages that can break on
+newer CMake/jsoncpp combinations — see `docs/RELEASE_NOTES_v2.0.0.md`,
 *Known limitations*):
 
 ```bash
-colcon build --symlink-install --packages-skip realsense_gazebo_plugin
+colcon build --symlink-install --packages-skip realsense_gazebo_plugin xarm_gazebo
 ```
 
 Or build only the plan-only path (no action library, faster):

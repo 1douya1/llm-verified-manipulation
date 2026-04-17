@@ -1,9 +1,11 @@
 #!/bin/bash
 # 修复 CMake 缓存冲突并重新构建
 #
-# Skips realsense_gazebo_plugin (xarm_ros2/thirdparty): Gazebo-only; on
-# newer CMake, jsoncpp's system config can fail configure. Plan-only and
-# real-robot do not need this package.
+# Skips Gazebo-only packages from xarm_ros2:
+#   - realsense_gazebo_plugin (xarm_ros2/thirdparty)
+#   - xarm_gazebo
+# On newer CMake, jsoncpp's system config can fail while resolving Gazebo deps.
+# Plan-only and real-robot execution paths in this repo do not need these.
 
 set -e
 
@@ -25,6 +27,11 @@ echo ""
 
 # Source ROS2 环境
 echo "🔧 Source ROS2 环境..."
+# 为避免 overlay/underlay 串扰，建议在新终端运行本脚本，并且只 source humble。
+if [[ "${AMENT_PREFIX_PATH:-}" == *"/uf_custom_ws/install"* ]]; then
+    echo "⚠️  检测到 uf_custom_ws underlay，先清理 overlay 相关环境变量..."
+    unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH
+fi
 source /opt/ros/humble/setup.bash
 echo "✅ ROS2 环境已加载"
 echo ""
@@ -32,7 +39,7 @@ echo ""
 # 重新构建
 echo "🔨 开始全新构建..."
 echo "================================"
-colcon build --symlink-install --packages-skip realsense_gazebo_plugin
+colcon build --symlink-install --packages-skip realsense_gazebo_plugin xarm_gazebo
 
 BUILD_STATUS=$?
 echo ""
