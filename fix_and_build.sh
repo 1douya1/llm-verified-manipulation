@@ -1,11 +1,11 @@
 #!/bin/bash
 # 修复 CMake 缓存冲突并重新构建
 #
-# Skips Gazebo-only packages from xarm_ros2:
-#   - realsense_gazebo_plugin (xarm_ros2/thirdparty)
-#   - xarm_gazebo
-# On newer CMake, jsoncpp's system config can fail while resolving Gazebo deps.
-# Plan-only and real-robot execution paths in this repo do not need these.
+# Skips realsense_gazebo_plugin (xarm_ros2/thirdparty), and applies
+# a CMake policy workaround for Gazebo/jsoncpp on newer toolchains.
+#
+# Note: xarm_moveit_config has an explicit package dependency on xarm_gazebo,
+# so we cannot skip xarm_gazebo in a true "full build".
 
 set -e
 
@@ -39,7 +39,9 @@ echo ""
 # 重新构建
 echo "🔨 开始全新构建..."
 echo "================================"
-colcon build --symlink-install --packages-skip realsense_gazebo_plugin xarm_gazebo
+colcon build --symlink-install \
+    --packages-skip realsense_gazebo_plugin \
+    --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 BUILD_STATUS=$?
 echo ""

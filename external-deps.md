@@ -20,13 +20,19 @@ They are listed here so the dependency matrix is fully self-describing.
 | `mtc_action_library_core` | C++ shared library | `mtc_action_library_py` (and any external consumer) | Reusable atomic-action MTC stage builders. Independent of the MCP main chain (see `docs/ACTION_LIBRARY.md`). |
 | `mtc_action_library_py` | pybind11 + Python | downstream test scripts only | Python bindings to `mtc_action_library_core`. The agent (`agent/`) does NOT depend on this and must not import it. |
 
-Build everything in one go (skips Gazebo-only packages that can break on
-newer CMake/jsoncpp combinations — see `docs/RELEASE_NOTES_v2.0.0.md`,
-*Known limitations*):
+Build everything in one go. On newer CMake/jsoncpp combinations, use the
+policy workaround below and skip only the thirdparty Gazebo plugin package
+(`realsense_gazebo_plugin`):
 
 ```bash
-colcon build --symlink-install --packages-skip realsense_gazebo_plugin xarm_gazebo
+colcon build --symlink-install \
+  --packages-skip realsense_gazebo_plugin \
+  --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 ```
+
+Why not skip `xarm_gazebo` too? Because `xarm_moveit_config/package.xml`
+declares `<depend>xarm_gazebo</depend>`, so in a true full build skipping
+`xarm_gazebo` causes `xarm_moveit_config` to fail environment generation.
 
 Or build only the plan-only path (no action library, faster):
 

@@ -141,15 +141,14 @@ run `scripts/diagnostics/system_diagnosis.py` and the
 - The agent layer (`agent/agent_app.py`) requires an Anthropic API key
   with Claude 3.5+ access. There is no fallback to a local model in this
   release.
-- **Gazebo-only packages `realsense_gazebo_plugin`** (vendored under
-  `xarm_ros2/thirdparty/`) **and `xarm_gazebo`** can fail CMake configure
-  on newer CMake (e.g. Ubuntu 24.04+ toolchain) because of system
-  `jsoncpp` policy compatibility in the Gazebo dependency chain.
-  Plan-only and real-robot flows do **not** require these packages —
-  skip them with `--packages-skip realsense_gazebo_plugin xarm_gazebo`
-  (see the verification block below). Only Gazebo simulation needs them;
-  if you truly need those packages, try
-  `--cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5`.
+- **Gazebo/jsoncpp compatibility on newer CMake**: the thirdparty package
+  `realsense_gazebo_plugin` (under `xarm_ros2/thirdparty/`) can fail
+  configure due to policy compatibility in system `jsoncpp`.
+  The practical workaround is:
+  - skip `realsense_gazebo_plugin`
+  - pass `--cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5`
+  We still build `xarm_gazebo` in the full-build path, because
+  `xarm_moveit_config/package.xml` explicitly depends on it.
 
 ---
 
@@ -178,7 +177,8 @@ source install/setup.bash
 rm -rf build install log
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install \
-  --packages-skip realsense_gazebo_plugin xarm_gazebo
+  --packages-skip realsense_gazebo_plugin \
+  --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 colcon list | grep -E "mtc_(interface|tutorial|action_library_core|action_library_py)"
 
 # 4. Real-robot dry-run (mandatory if you have hardware)
