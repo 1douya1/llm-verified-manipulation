@@ -357,13 +357,25 @@ def setup_planning_scene(
                          bowl_id_prefix: str = "bowl",
                          bowl_height: float = 0.07,
                          bowl_radius: float = 0.04,
-                         bowl_default_z: float = 0.125,
+                         bowl_default_z: float = 0.0,
                          # 新增：bottle 生成控制与默认模型尺寸
                          include_bottle: bool = True,
                          bottle_id_prefix: str = "bottle",
                          bottle_height: float = 0.15,  # bottle比cup高一些
                         bottle_radius: float = 0.025,  # bottle稍微细一点
                         bottle_default_z: float = 0.13,
+                        # 新增：orange 生成控制与默认模型尺寸
+                        include_orange: bool = True,
+                        orange_id_prefix: str = "orange",
+                        orange_height: float = 0.07,
+                        orange_radius: float = 0.02,
+                        orange_default_z: float = 0.05,
+                        # 新增：apple 生成控制与默认模型尺寸
+                        include_apple: bool = True,
+                        apple_id_prefix: str = "apple",
+                        apple_height: float = 0.07,
+                        apple_radius: float = 0.035,
+                        apple_default_z: float = 0.05,
                         # 可选：添加"虚拟墙"禁入区（通过一个BOX碰撞体实现）
                         add_no_go_wall: bool = False,  # 默认禁用虚拟墙
                          wall_x_min: float = 0.40, wall_x_max: float = 0.42,
@@ -378,6 +390,8 @@ def setup_planning_scene(
       - cup: 杯子（默认尺寸：height=0.1m, radius=0.02m）
       - bowl: 碗（默认尺寸：height=0.07m, radius=0.04m）
       - bottle: 瓶子（默认尺寸：height=0.15m, radius=0.025m）
+      - orange: 橙子（默认尺寸：height=0.07m, radius=0.02m）
+      - apple: 苹果（默认尺寸：height=0.07m, radius=0.035m）
     
     生成的物体：
       - ID：统一命名为 id_prefix_1, id_prefix_2, id_prefix_3 ...（例如：object_1, object_2）
@@ -393,6 +407,8 @@ def setup_planning_scene(
         include_cup/cup_x/...: 仅在没有检测输入时用于回退生成一个默认杯子
         include_bowl/bowl_*: bowl物体的生成控制和尺寸参数
         include_bottle/bottle_*: bottle物体的生成控制和尺寸参数
+        include_orange/orange_*: orange物体的生成控制和尺寸参数
+        include_apple/apple_*: apple物体的生成控制和尺寸参数
     
     Returns:
         包含场景设置结果的字典
@@ -625,6 +641,8 @@ def setup_planning_scene(
         cup_specs: List[Dict[str, Any]] = []
         bowl_specs: List[Dict[str, Any]] = []
         bottle_specs: List[Dict[str, Any]] = []
+        orange_specs: List[Dict[str, Any]] = []
+        apple_specs: List[Dict[str, Any]] = []
         
         if detection_result is not None:
             # 从检测结果中提取所有物体，然后按类型分类
@@ -647,6 +665,16 @@ def setup_planning_scene(
                     bottle_id = f"{bottle_id_prefix}_{bottle_idx}"  # 统一命名
                     spec["id"] = bottle_id
                     bottle_specs.append(spec)
+                elif class_name == "orange" and include_orange:
+                    orange_idx = len(orange_specs) + 1
+                    orange_id = f"{orange_id_prefix}_{orange_idx}"
+                    spec["id"] = orange_id
+                    orange_specs.append(spec)
+                elif class_name == "apple" and include_apple:
+                    apple_idx = len(apple_specs) + 1
+                    apple_id = f"{apple_id_prefix}_{apple_idx}"
+                    spec["id"] = apple_id
+                    apple_specs.append(spec)
                     
         elif detected_objects is not None:
             cup_specs = _specs_from_legacy(detected_objects)
@@ -659,7 +687,7 @@ def setup_planning_scene(
                 "class_name": "cup",
                 "x": cup_x, "y": cup_y, "z": cup_z,
             }]
-        # bowl 和 bottle 无默认回退，依赖检测
+        # bowl / bottle / orange / apple 无默认回退，依赖检测
         
         # 生成杯子碰撞对象（使用拟合的真实尺寸和姿态）
         for spec in cup_specs:
@@ -713,7 +741,7 @@ def setup_planning_scene(
             })
             cup_created_specs.append({"id": spec["id"]})
         
-        # 生成 bowl 碰撞对象（更矮更大；Z 使用默认高度）
+        # 生成 bowl 碰撞对象（更矮更大；优先使用检测到的原始Z，避免额外抬高）
         if include_bowl and bowl_specs:
             for spec in bowl_specs:
                 bowl_object = CollisionObject()
@@ -728,7 +756,7 @@ def setup_planning_scene(
                 bowl_pose = Pose()
                 bowl_pose.position.x = float(spec.get("x", 0.0))
                 bowl_pose.position.y = float(spec.get("y", 0.0))
-                bowl_pose.position.z = float(bowl_default_z)
+                bowl_pose.position.z = float(spec.get("z", bowl_default_z))
                 bowl_pose.orientation.w = 1.0
 
                 bowl_object.primitive_poses.append(bowl_pose)
@@ -766,7 +794,63 @@ def setup_planning_scene(
                     "position": {"x": bottle_pose.position.x, "y": bottle_pose.position.y, "z": bottle_pose.position.z},
                 })
                 bottle_created_specs.append({"id": spec["id"]})
-        
+
+        # 生成 orange 碰撞对象（短胖圆柱近似球体；Z 使用默认高度）
+        orange_created_specs: List[Dict[str, Any]] = []
+        if include_orange and orange_specs:
+            for spec in orange_specs:
+                orange_object = CollisionObject()
+                orange_object.header.stamp = node.get_clock().now().to_msg()
+                orange_object.header.frame_id = "link_base"
+                orange_object.id = spec["id"]
+
+                orange_object.primitives.append(SolidPrimitive())
+                orange_object.primitives[0].type = SolidPrimitive.CYLINDER
+                orange_object.primitives[0].dimensions = [float(orange_height), float(orange_radius)]
+
+                orange_pose = Pose()
+                orange_pose.position.x = float(spec.get("x", 0.0))
+                orange_pose.position.y = float(spec.get("y", 0.0))
+                orange_pose.position.z = float(orange_default_z)
+                orange_pose.orientation.w = 1.0
+
+                orange_object.primitive_poses.append(orange_pose)
+                orange_object.operation = CollisionObject.ADD
+                collision_objects.append(orange_object)
+                added_object_specs.append({
+                    "id": spec["id"],
+                    "position": {"x": orange_pose.position.x, "y": orange_pose.position.y, "z": orange_pose.position.z},
+                })
+                orange_created_specs.append({"id": spec["id"]})
+
+        # 生成 apple 碰撞对象（短胖圆柱近似球体；Z 使用默认高度）
+        apple_created_specs: List[Dict[str, Any]] = []
+        if include_apple and apple_specs:
+            for spec in apple_specs:
+                apple_object = CollisionObject()
+                apple_object.header.stamp = node.get_clock().now().to_msg()
+                apple_object.header.frame_id = "link_base"
+                apple_object.id = spec["id"]
+
+                apple_object.primitives.append(SolidPrimitive())
+                apple_object.primitives[0].type = SolidPrimitive.CYLINDER
+                apple_object.primitives[0].dimensions = [float(apple_height), float(apple_radius)]
+
+                apple_pose = Pose()
+                apple_pose.position.x = float(spec.get("x", 0.0))
+                apple_pose.position.y = float(spec.get("y", 0.0))
+                apple_pose.position.z = float(apple_default_z)
+                apple_pose.orientation.w = 1.0
+
+                apple_object.primitive_poses.append(apple_pose)
+                apple_object.operation = CollisionObject.ADD
+                collision_objects.append(apple_object)
+                added_object_specs.append({
+                    "id": spec["id"],
+                    "position": {"x": apple_pose.position.x, "y": apple_pose.position.y, "z": apple_pose.position.z},
+                })
+                apple_created_specs.append({"id": spec["id"]})
+
         # 应用碰撞对象 - 模拟原始的 psi.applyCollisionObjects(collision_objects)
         if use_service:
             planning_scene_msg = PlanningScene()
@@ -820,7 +904,7 @@ def setup_planning_scene(
         
         time.sleep(1.0)
         
-        # 将每个对象（杯子/碗）的原始位置写入模块化服务器的参数表（供 place.return_to_origin 回退使用）
+        # 将每个对象（杯子/碗）的原始位置写入任务服务器参数表（供 place.return_to_origin 回退使用）
         try:
             origin_params_ok = False
             if added_object_specs:
@@ -831,15 +915,26 @@ def setup_planning_scene(
                     param_map[f"place.origin.{oid}.x"] = float(pos["x"])  # 已是 link_base 下坐标
                     param_map[f"place.origin.{oid}.y"] = float(pos["y"]) 
                     param_map[f"place.origin.{oid}.z"] = float(pos["z"]) 
-                # 写入并重试一次
-                origin_params_ok = _set_params('/modular_task_server', param_map, timeout_sec=5.0)
-                if not origin_params_ok:
-                    node.get_logger().warn("写入place.origin参数超时，重试一次…")
-                    origin_params_ok = _set_params('/modular_task_server', param_map, timeout_sec=10.0)
+                # 兼容两类执行器：
+                # - baseline/action-library: /action_library_node
+                # - mcp modular task:      /modular_task_server
+                target_nodes = ["/action_library_node", "/modular_task_server"]
+                written_nodes: List[str] = []
+                for target in target_nodes:
+                    ok = _set_params(target, param_map, timeout_sec=3.0)
+                    if not ok:
+                        ok = _set_params(target, param_map, timeout_sec=8.0)
+                    if ok:
+                        written_nodes.append(target)
+                origin_params_ok = len(written_nodes) > 0
                 if origin_params_ok:
-                    node.get_logger().info(f"已写入 {len(added_object_specs)} 个对象的原始位姿到 /modular_task_server")
+                    node.get_logger().info(
+                        f"已写入 {len(added_object_specs)} 个对象的原始位姿到: {written_nodes}"
+                    )
                 else:
-                    node.get_logger().warn("未能写入place.origin参数，后续回原位/基于object移动可能退化")
+                    node.get_logger().warn(
+                        "未能写入place.origin参数到任何任务服务器，后续回原位/基于object移动可能退化"
+                    )
         except Exception:
             origin_params_ok = False
             pass
@@ -848,6 +943,8 @@ def setup_planning_scene(
         cup_ids = [spec["id"] for spec in cup_created_specs]
         bowl_ids = [spec["id"] for spec in bowl_created_specs]
         bottle_ids = [spec["id"] for spec in bottle_created_specs]
+        orange_ids = [spec["id"] for spec in orange_created_specs]
+        apple_ids = [spec["id"] for spec in apple_created_specs]
         
         node.get_logger().info("Planning scene setup completed!")
         node.get_logger().info(f"Added objects using {method}: {added_objects}")
@@ -857,6 +954,10 @@ def setup_planning_scene(
             node.get_logger().info(f"Added {len(bowl_created_specs)} bowl objects: {bowl_ids}")
         if bottle_created_specs:
             node.get_logger().info(f"Added {len(bottle_created_specs)} bottle objects: {bottle_ids}")
+        if orange_created_specs:
+            node.get_logger().info(f"Added {len(orange_created_specs)} orange objects: {orange_ids}")
+        if apple_created_specs:
+            node.get_logger().info(f"Added {len(apple_created_specs)} apple objects: {apple_ids}")
         
         return {
             "ok": True,
@@ -873,6 +974,12 @@ def setup_planning_scene(
             "bottle_included": bool(bottle_created_specs),
             "bottle_count": len(bottle_created_specs),
             "bottle_ids": bottle_ids,
+            "orange_included": bool(orange_created_specs),
+            "orange_count": len(orange_created_specs),
+            "orange_ids": orange_ids,
+            "apple_included": bool(apple_created_specs),
+            "apple_count": len(apple_created_specs),
+            "apple_ids": apple_ids,
             "method": method,
             "no_go_wall": add_no_go_wall,
             "wall_alpha": float(max(0.0, min(1.0, wall_alpha))),

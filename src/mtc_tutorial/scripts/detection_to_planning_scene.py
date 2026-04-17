@@ -29,7 +29,7 @@ class DetectionToPlanningScene(Node):
         # 参数
         self.declare_parameter('topic', 'object_detection_result')
         self.declare_parameter('only_cup', False)
-        self.declare_parameter('allowed_classes', ['cup', 'bowl', 'bottle'])
+        self.declare_parameter('allowed_classes', ['cup', 'bowl', 'bottle', 'orange', 'apple'])
         self.declare_parameter('min_confidence', 0.3)
         self.declare_parameter('apply_timeout', 10.0)
         self.declare_parameter('log_added', True)
@@ -100,6 +100,8 @@ class DetectionToPlanningScene(Node):
                 include_cup=False,
                 include_bowl=True,
                 include_bottle=True,
+                include_orange=True,
+                include_apple=True,
                 add_no_go_wall=False,  # 禁用虚拟墙障碍物
                 timeout_sec=self.apply_timeout
             )
@@ -109,7 +111,9 @@ class DetectionToPlanningScene(Node):
                     self.get_logger().info(
                         f"Applied planning scene: cups={result.get('cup_count', 0)} {result.get('cup_ids', [])}, "
                         f"bowls={result.get('bowl_count', 0)} {result.get('bowl_ids', [])}, "
-                        f"bottles={result.get('bottle_count', 0)} {result.get('bottle_ids', [])}"
+                        f"bottles={result.get('bottle_count', 0)} {result.get('bottle_ids', [])}, "
+                        f"oranges={result.get('orange_count', 0)} {result.get('orange_ids', [])}, "
+                        f"apples={result.get('apple_count', 0)} {result.get('apple_ids', [])}"
                     )
                 else:
                     self.get_logger().error(f"Scene apply failed: {result}")
