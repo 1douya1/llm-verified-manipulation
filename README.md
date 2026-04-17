@@ -141,12 +141,21 @@ git submodule update --init --recursive   # pulls xarm_ros2 AND xarm_sdk/cxx
 
 ### Python Dependencies (Agent layer and/or real robot)
 
-See [agent/simple_requirements.txt](agent/simple_requirements.txt) for the
-pinned list. Minimum:
+The full pip pin list (with which packages are required for plan-only vs
+real-robot) is **only** maintained in
+[external-deps.md, Section 3](external-deps.md#3-python-packages-pip).
 
-- `langchain-core>=0.3.0`, `langchain-anthropic>=0.3.0`, `langgraph>=0.2.0`
-- `python-dotenv>=1.0.0`
-- Real robot only: `opencv-python`, `ultralytics`, `pyrealsense2`
+For the agent / web UI in this repo:
+
+```bash
+pip install -r agent/simple_requirements.txt
+```
+
+For the real-robot perception layer install in addition:
+
+```bash
+pip install opencv-python ultralytics pyrealsense2
+```
 
 ---
 

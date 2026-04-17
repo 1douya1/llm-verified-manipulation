@@ -8,6 +8,30 @@ installed via `apt` / `pip` with minimum compatible versions.
 The submodule/apt/pip matrix below is the authoritative list. `README.md`
 only links back here to avoid duplicate maintenance.
 
+## 0. First-party packages (in `src/`)
+
+These packages live inside this repository and are built by `colcon build`.
+They are listed here so the dependency matrix is fully self-describing.
+
+| Package | Type | Required by | Notes |
+|---------|------|-------------|-------|
+| `mtc_interface` | C++/ROS msgs | `mtc_tutorial`, `mtc_action_library_core` | ROS msg/srv definitions for MTC actions. |
+| `mtc_tutorial` | C++/Python/ROS | plan-only **and** real robot | Pour pipeline, MoveIt2 launch files, perception nodes (`detection_to_planning_scene.py`, `object_single_shot_detection.py`). |
+| `mtc_action_library_core` | C++ shared library | `mtc_action_library_py` (and any external consumer) | Reusable atomic-action MTC stage builders. Independent of the MCP main chain (see `docs/ACTION_LIBRARY.md`). |
+| `mtc_action_library_py` | pybind11 + Python | downstream test scripts only | Python bindings to `mtc_action_library_core`. The agent (`agent/`) does NOT depend on this and must not import it. |
+
+Build everything in one go:
+
+```bash
+colcon build --symlink-install
+```
+
+Or build only the plan-only path (no action library, faster):
+
+```bash
+colcon build --symlink-install --packages-up-to mtc_tutorial
+```
+
 ## 1. Submodules (pinned in `.gitmodules`)
 
 | Path | Upstream | Locked at | Why this version |
@@ -57,14 +81,22 @@ packages below are consumed at runtime but **not** vendored:
 
 | Package | Min version | Plan-only | Real robot | Notes |
 |---------|-------------|-----------|------------|-------|
-| `langchain-core` | 0.2.0 | optional (agent dry-run) | required | LangGraph state machine base |
-| `langchain-anthropic` | 0.1.0 | optional | required | Claude API wrapper |
-| `langgraph` | 0.1.0 | optional | required | Agent orchestration |
+| `langchain-core` | 0.3.0 | optional (agent dry-run) | required | LangGraph state machine base |
+| `langchain-anthropic` | 0.3.0 | optional | required | Claude API wrapper |
+| `langgraph` | 0.2.0 | optional | required | Agent orchestration |
+| `python-dotenv` | 1.0.0 | optional | required | Loads `agent/.env` (ANTHROPIC_API_KEY) |
+| `fastapi` | 0.116 | optional (web UI) | optional | `agent/simple_backend.py` |
+| `uvicorn[standard]` | 0.35 | optional | optional | ASGI server for the web UI |
 | `opencv-python` | 4.5 | not used | required | ChArUco calibration + YOLO input |
 | `ultralytics` | 8.0 | not used | required | YOLO object detection |
 | `pyrealsense2` | 2.54 | not used | required | Pulls RGB + depth frames |
 
-Full pinned list lives in [agent/simple_requirements.txt](agent/simple_requirements.txt).
+The agent / web-UI pins are the source-of-truth in
+[agent/simple_requirements.txt](agent/simple_requirements.txt). The three
+real-robot-only packages (`opencv-python`, `ultralytics`, `pyrealsense2`)
+are intentionally **not** in `simple_requirements.txt` — install them
+separately when you reach
+[docs/REAL_ROBOT_QUICK_START.md](docs/REAL_ROBOT_QUICK_START.md) Step 4.
 
 ## 4. NOT included in this repository
 
@@ -79,5 +111,8 @@ transparency:
 - `pointcloud_geometry_fitter.py`, `publish_camera_root_from_handeye.py`,
   `launch/florence_visual_detection.launch.py` — these originate from a
   separate maniagent project and are not part of the RSS pipeline.
+- `Langraph_Agent/baselines/` and `Langraph_Agent/detector/` — research
+  baselines and an alternative detector that live in the parent
+  `uf_custom_ws` workspace. Intentionally NOT migrated.
 - Private calibration data (`recorded_poses.yaml`, camera intrinsics, etc.)
   are `.gitignore`d and must be regenerated locally.
