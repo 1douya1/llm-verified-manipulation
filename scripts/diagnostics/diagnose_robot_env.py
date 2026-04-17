@@ -12,7 +12,9 @@ Run after sourcing the workspace:
     python3 scripts/diagnostics/diagnose_robot_env.py
 """
 
+import subprocess
 import sys
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -31,8 +33,31 @@ def check_move_group():
     try:
         # 1. 检查MoveGroup节点
         print("\n1️⃣  检查MoveGroup节点...")
-        node_names = node.get_node_names()
-        move_group_found = any('move_group' in name for name in node_names)
+        # Graph discovery is eventually consistent. Give DDS some time.
+        node_names = []
+        for _ in range(10):
+            rclpy.spin_once(node, timeout_sec=0.2)
+            node_names = node.get_node_names()
+            move_group_found = any('move_group' in name for name in node_names)
+            if move_group_found:
+                break
+            time.sleep(0.1)
+
+        # Fallback to ROS CLI (same source user usually checks manually).
+        if not move_group_found:
+            try:
+                p = subprocess.run(
+                    ['ros2', 'node', 'list'],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=3.0
+                )
+                if p.returncode == 0 and 'move_group' in p.stdout:
+                    move_group_found = True
+                    print("   [..] 通过 `ros2 node list` 兜底检测到 move_group")
+            except Exception:
+                pass
 
         if move_group_found:
             print("   ✅ MoveGroup节点正在运行")
@@ -50,28 +75,23 @@ def check_move_group():
         # 2. 检查参数服务器
         print("\n2️⃣  检查MoveGroup参数...")
         try:
-            from rclpy.parameter_client import SyncParametersClient
-            param_client = SyncParametersClient(node, '/move_group')
-
-            if param_client.wait_for_service(timeout_sec=2.0):
+            p = subprocess.run(
+                ['ros2', 'param', 'list', '/move_group'],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=4.0
+            )
+            if p.returncode == 0:
                 print("   ✅ 参数服务可用")
-
-                # 检查关键参数
-                try:
-                    params = param_client.get_parameters([
-                        'robot_description',
-                        'robot_description_semantic',
-                        'robot_description_kinematics.uf850.kinematics_solver'
-                    ])
-
-                    for param in params:
-                        if param.type_ == 0:  # PARAMETER_NOT_SET
-                            print(f"   ⚠️  {param.name}: 未设置")
-                        else:
-                            value_preview = str(param.value)[:50] if param.type_ == 4 else param.value
-                            print(f"   ✅ {param.name}: {value_preview}...")
-                except Exception as e:
-                    print(f"   ⚠️  获取参数时出错: {e}")
+                important = [
+                    'robot_description',
+                    'robot_description_semantic',
+                    'robot_description_kinematics.uf850.kinematics_solver',
+                ]
+                for key in important:
+                    flag = "✅" if key in p.stdout else "⚠️"
+                    print(f"   {flag} {key}")
             else:
                 print("   ❌ 参数服务不可用")
         except Exception as e:

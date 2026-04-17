@@ -10,6 +10,7 @@ Run as a standalone Python script after the workspace is sourced:
 """
 
 import os
+import subprocess
 import sys
 
 import rclpy
@@ -25,17 +26,21 @@ class JointLimitsChecker(Node):
         print("检查UF850关节加速度限制配置")
         print("="*60)
         
-        # Optional: confirm /move_group parameter service exists (ROS 2 Humble API).
+        # Optional: lightweight probe (no rclpy parameter-client API dependency).
         try:
-            from rclpy.parameter_client import SyncParametersClient
-            pc = SyncParametersClient(self, '/move_group')
-            if pc.wait_for_service(timeout_sec=2.0):
-                print("[OK] /move_group 参数服务可用（在线探测）。")
+            p = subprocess.run(
+                ['ros2', 'node', 'list'],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=3.0
+            )
+            if p.returncode == 0 and 'move_group' in p.stdout:
+                print("[OK] 检测到 move_group 正在运行（在线探测）。")
             else:
-                print("[..] /move_group 未运行，跳过在线参数探测。")
-                print("      本脚本仍会检查磁盘上的 joint_limits.yaml。")
+                print("[..] 未检测到 move_group，继续做离线 YAML 校验。")
         except Exception as e:
-            print(f"[..] 无法探测 /move_group: {e}")
+            print(f"[..] 无法执行在线探测: {e}")
             
         print("\nLocating joint_limits.yaml in xarm_moveit_config...")
         joint_limits_path = _find_joint_limits_yaml()
