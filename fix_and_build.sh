@@ -1,14 +1,18 @@
 #!/bin/bash
 # 修复 CMake 缓存冲突并重新构建
+#
+# Skips realsense_gazebo_plugin (xarm_ros2/thirdparty): Gazebo-only; on
+# newer CMake, jsoncpp's system config can fail configure. Plan-only and
+# real-robot do not need this package.
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 echo "🔧 修复 CMake 缓存冲突问题"
 echo "================================"
 echo ""
-
-# 进入工作空间
-cd /home/wenhao/RSS_Workshop/RSS_Workshop
 
 echo "📁 当前位置: $(pwd)"
 echo ""
@@ -28,7 +32,7 @@ echo ""
 # 重新构建
 echo "🔨 开始全新构建..."
 echo "================================"
-colcon build --symlink-install
+colcon build --symlink-install --packages-skip realsense_gazebo_plugin
 
 BUILD_STATUS=$?
 echo ""

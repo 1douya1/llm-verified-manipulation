@@ -141,6 +141,15 @@ run `scripts/diagnostics/system_diagnosis.py` and the
 - The agent layer (`agent/agent_app.py`) requires an Anthropic API key
   with Claude 3.5+ access. There is no fallback to a local model in this
   release.
+- **Gazebo-only package `realsense_gazebo_plugin`** (vendored under
+  `xarm_ros2/thirdparty/`) can fail CMake configure on newer CMake
+  (e.g. Ubuntu 24.04+ toolchain) because of system `jsoncpp` config
+  policy warnings promoted to errors. Plan-only and real-robot flows do
+  **not** require this plugin — skip it with
+  `--packages-skip realsense_gazebo_plugin` (see the verification block
+  below). Only Gazebo simulation with the bundled RealSense URDF plugin
+  needs it; if you truly need that package, try passing
+  `--cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5` on the colcon line.
 
 ---
 
@@ -161,8 +170,13 @@ source install/setup.bash
 ./scripts/run_demo.sh --plan-only          # RViz comes up, MTC plans visible
 
 # 3. Full build (mandatory once, to prove the action library compiles)
+# Use a shell that has ONLY /opt/ros/humble sourced (do not stack
+# another workspace's install/ on top — colcon will warn about
+# overriding xarm_* from an underlay and may pick wrong headers).
 rm -rf build install log
-colcon build --symlink-install
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install \
+  --packages-skip realsense_gazebo_plugin
 colcon list | grep -E "mtc_(interface|tutorial|action_library_core|action_library_py)"
 
 # 4. Real-robot dry-run (mandatory if you have hardware)
