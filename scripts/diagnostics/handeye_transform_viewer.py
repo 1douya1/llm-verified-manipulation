@@ -37,6 +37,20 @@ def fmt_transform(tf):
     )
 
 
+def lookup_with_retry(buf, node, parent, child, timeout_sec=3.0):
+    """Try TF lookup for up to timeout_sec, spinning between attempts."""
+    deadline = time.time() + timeout_sec
+    last_err = None
+    while time.time() < deadline:
+        rclpy.spin_once(node, timeout_sec=0.1)
+        try:
+            return buf.lookup_transform(parent, child, rclpy.time.Time()), None
+        except TransformException as e:
+            last_err = e
+            time.sleep(0.05)
+    return None, last_err
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -71,15 +85,15 @@ def main() -> int:
                 (args.base, args.ee, 'base -> ee'),
                 (args.ee, args.camera, 'ee -> camera (eye-in-hand)'),
             ):
-                try:
-                    tf = buf.lookup_transform(parent, child, rclpy.time.Time())
+                tf, err = lookup_with_retry(buf, node, parent, child, timeout_sec=3.0)
+                if tf is not None:
                     print(f'\n{label}  ({parent} -> {child}):')
                     print(fmt_transform(tf))
-                except TransformException as e:
+                else:
                     snap_missing = True
                     any_missing = True
                     print(f'\n{label}  ({parent} -> {child}): NOT AVAILABLE')
-                    print(f'  ({e})')
+                    print(f'  ({err})')
             if snap_missing:
                 print(
                     '\n提示: 若出现 “does not exist”，请先启动机械臂 + MoveIt（会发布'
