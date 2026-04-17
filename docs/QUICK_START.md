@@ -31,36 +31,52 @@ sudo apt install ros-humble-desktop
 sudo apt install ros-humble-moveit-task-constructor-*
 ```
 
-### Step 2: Install xarm_ros2 (UF850 MoveIt Config)
+### Step 2: Clone xarm_ros2 + init submodules
 
-This repository does **not** vendor xarm_ros2. You need to install it from
-source so that the `xarm_moveit_config` package is available.
+This repository does **not** vendor xarm_ros2. Clone it alongside RSS_Workshop
+inside the same workspace `src/` directory:
 
 ```bash
-# Clone into the same workspace (simplest)
-cd <workspace_root>/src
+cd <workspace>/src
 git clone https://github.com/xArm-Developer/xarm_ros2.git
+
+# IMPORTANT: initialise xarm_ros2 submodules (xarm_sdk needs this)
+cd xarm_ros2
+git submodule sync
+git submodule update --init --remote
+cd ../..    # back to workspace root
 ```
 
-Or, if you prefer a separate workspace:
-
-```bash
-mkdir -p ~/xarm_ws/src && cd ~/xarm_ws/src
-git clone https://github.com/xArm-Developer/xarm_ros2.git
-cd ~/xarm_ws
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install
-# Source this BEFORE sourcing the RSS_Workshop workspace:
-source ~/xarm_ws/install/setup.bash
+Without the `git submodule update` step, the build will fail with:
+```
+xarm_sdk contains sub-modules, Please use the following command ...
 ```
 
 ### Step 3: Build
 
+Run `colcon build` from the **workspace root** (not from `src/`).
+Use `--packages-up-to mtc_tutorial` to skip unrelated xarm packages
+(like `realsense_gazebo_plugin`) that may fail on some systems:
+
 ```bash
-cd <workspace_root>     # the folder containing src/ with this repo
+cd <workspace>           # e.g. ~/rss_ws
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install
+colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
+```
+
+**Workspace layout** (after build):
+```
+rss_ws/                  <- workspace root, run colcon build HERE
+  src/
+    RSS_Workshop/        <- this repo
+      src/
+        mtc_interface/   <- our message/action package
+        mtc_tutorial/    <- our MTC package
+      scripts/run_demo.sh
+    xarm_ros2/           <- xarm_ros2 (cloned in step 2)
+  install/               <- created by colcon build
+  build/
 ```
 
 **Expected output** (the two packages from this repo):
@@ -76,13 +92,11 @@ Summary: 2 packages finished [~25s]
 ### Step 4: Launch the Plan-Only Demo
 
 ```bash
-./scripts/run_demo.sh --plan-only
-```
+# Option A: use the launcher script (auto-detects workspace)
+./src/RSS_Workshop/scripts/run_demo.sh --plan-only
 
-Or directly:
-
-```bash
-ros2 launch mtc_tutorial plan_only_demo.launch.py
+# Option B: launch directly (if workspace is already sourced)
+ros2 launch mtc_tutorial plan_only_demo.launch.py add_gripper:=true
 ```
 
 ### What You Will See
@@ -203,9 +217,23 @@ echo $ROS_DISTRO  # Should output: humble
 # Install missing dependencies
 sudo apt install ros-humble-moveit-task-constructor-*
 
-# Clean rebuild
+# Clean rebuild (only the packages we need)
 rm -rf build install log
-colcon build --symlink-install
+colcon build --symlink-install --packages-up-to mtc_tutorial
+```
+
+`--packages-up-to mtc_tutorial` builds only `mtc_tutorial` and its
+dependencies, skipping unrelated packages that may have system-specific
+build issues (e.g. `realsense_gazebo_plugin`).
+
+### "xarm_sdk contains sub-modules" / xarm_sdk build fails
+
+```bash
+cd <workspace>/src/xarm_ros2
+git submodule sync
+git submodule update --init --remote
+cd <workspace>
+colcon build --symlink-install --packages-up-to mtc_tutorial
 ```
 
 ### "xarm_moveit_config not found"
@@ -214,10 +242,12 @@ colcon build --symlink-install
 # Verify xarm_ros2 is installed
 ros2 pkg list | grep xarm_moveit_config
 
-# If not found, install it (see Step 2 above)
+# If not found, clone and build (see Step 2 above)
 cd <workspace>/src
 git clone https://github.com/xArm-Developer/xarm_ros2.git
-cd .. && colcon build --symlink-install
+cd xarm_ros2 && git submodule sync && git submodule update --init --remote
+cd <workspace>
+colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
 ```
 
@@ -230,6 +260,19 @@ source install/setup.bash
 
 # Verify packages
 ros2 pkg list | grep mtc
+```
+
+### "Could not find parameter robot_description" / "Task failed to construct RobotModel"
+
+This means `move_group` is not running. You must launch the demo **first**:
+
+```bash
+# Terminal 1: launch demo (starts move_group + RViz)
+ros2 launch mtc_tutorial plan_only_demo.launch.py
+
+# Terminal 2: THEN trigger planning
+source install/setup.bash
+ros2 run mtc_tutorial test_modular_tasks
 ```
 
 ### No objects visible in RViz

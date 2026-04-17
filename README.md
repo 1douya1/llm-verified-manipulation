@@ -124,19 +124,21 @@ You must install these packages separately:
 
 2. **xarm_ros2** (REQUIRED - provides UF850 URDF/SRDF and MoveIt config)
 
-   This package is **not vendored** in this repository. Install from source:
+   This package is **not vendored** in this repository. Clone it alongside:
    ```bash
-   # Option A: clone into your workspace alongside this repo
-   cd <your_workspace>/src
+   cd <workspace>/src
    git clone https://github.com/xArm-Developer/xarm_ros2.git
-   cd .. && colcon build --symlink-install
-
-   # Option B: separate workspace (source it before running the demo)
-   mkdir -p ~/xarm_ws/src && cd ~/xarm_ws/src
-   git clone https://github.com/xArm-Developer/xarm_ros2.git
-   cd ~/xarm_ws && colcon build --symlink-install
-   source ~/xarm_ws/install/setup.bash
+   cd xarm_ros2
+   git submodule sync && git submodule update --init --remote   # IMPORTANT!
+   cd <workspace>
+   colcon build --symlink-install --packages-up-to mtc_tutorial
    ```
+
+   The `git submodule update` step is **required** -- xarm_ros2 uses submodules
+   for its SDK, and the build will fail without them.
+
+   Use `--packages-up-to mtc_tutorial` to avoid building unrelated xarm_ros2
+   packages (like `realsense_gazebo_plugin`) that may have system-specific issues.
 
    Official repo: https://github.com/xArm-Developer/xarm_ros2
 
@@ -162,28 +164,34 @@ See `agent/simple_requirements.txt` for complete list.
 
 **See [REVIEWER_GUIDE.md](REVIEWER_GUIDE.md) for detailed reviewer instructions.**
 
-### Quick Setup (4 steps)
+### Quick Setup
 
 ```bash
 # 1. Install system dependencies
 sudo apt install ros-humble-desktop ros-humble-moveit-task-constructor-*
 
-# 2. Install xarm_ros2 (UF850 MoveIt config - NOT vendored in this repo)
-cd <your_workspace>/src
+# 2. Create workspace and clone
+mkdir -p ~/rss_ws/src && cd ~/rss_ws/src
+git clone <repo-url> RSS_Workshop
 git clone https://github.com/xArm-Developer/xarm_ros2.git
+cd xarm_ros2 && git submodule sync && git submodule update --init --remote
 
-# 3. Build everything
-cd <your_workspace>
+# 3. Build (only the packages we need)
+cd ~/rss_ws
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install
+colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
 
-# 4. Launch plan-only demo (opens RViz with UF850 + demo scene)
-./scripts/run_demo.sh --plan-only
+# 4. Launch plan-only demo
+./src/RSS_Workshop/scripts/run_demo.sh --plan-only
 ```
 
 **RViz will open** showing the UF850 robot, a table, a cup, and a bowl.
 No robot hardware required.
+
+> **Note**: `--packages-up-to mtc_tutorial` builds only `mtc_tutorial` and its
+> dependencies (mtc_interface, xarm_moveit_config, etc.), skipping unrelated
+> packages like `realsense_gazebo_plugin` that may fail on some systems.
 
 ### Detailed Steps
 

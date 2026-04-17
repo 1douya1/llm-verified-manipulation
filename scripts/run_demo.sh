@@ -3,13 +3,27 @@
 #  RSS Workshop - Plan-Only Demo Launcher
 # ============================================================
 #
-#  Default behaviour: launch MoveIt2 + MTC for UF850 in
-#  fake-controller mode, open RViz, inject demo collision
-#  objects, and let the reviewer trigger planning.
+#  Supports TWO workspace layouts:
+#
+#  Layout A (RSS_Workshop IS the workspace root):
+#    RSS_Workshop/            <- colcon build here
+#      src/
+#        mtc_interface/
+#        mtc_tutorial/
+#        xarm_ros2/
+#      scripts/run_demo.sh
+#
+#  Layout B (wrapper workspace):
+#    my_ws/                   <- colcon build here
+#      src/
+#        RSS_Workshop/        <- this repo
+#          src/mtc_interface/ ...
+#          scripts/run_demo.sh
+#        xarm_ros2/
 #
 #  Usage:
-#    ./scripts/run_demo.sh              # interactive mode select
-#    ./scripts/run_demo.sh --plan-only  # skip menu, go straight
+#    ./scripts/run_demo.sh              # interactive
+#    ./scripts/run_demo.sh --plan-only  # skip menu
 #    ./scripts/run_demo.sh --help
 #
 # ============================================================
@@ -18,14 +32,42 @@ set -e
 
 # ---------- paths ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_DIR="$(dirname "$SCRIPT_DIR")"
-AGENT_DIR="$WORKSPACE_DIR/agent"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"     # always the RSS_Workshop repo dir
+AGENT_DIR="$REPO_DIR/agent"
+
+# Detect workspace root: find the nearest ancestor that has src/ as a child
+# and is suitable for colcon build.
+detect_workspace_root() {
+    # If RSS_Workshop/src/ contains ROS packages directly, it IS the workspace
+    if [ -f "$REPO_DIR/src/mtc_interface/package.xml" ] || \
+       [ -f "$REPO_DIR/src/mtc_tutorial/package.xml" ]; then
+        echo "$REPO_DIR"
+        return
+    fi
+    # Otherwise walk up: the repo is inside some_ws/src/RSS_Workshop/
+    local dir="$REPO_DIR"
+    while [ "$dir" != "/" ]; do
+        local parent="$(dirname "$dir")"
+        local grandparent="$(dirname "$parent")"
+        # Check if parent is "src" and grandparent looks like a workspace
+        if [ "$(basename "$parent")" = "src" ]; then
+            echo "$grandparent"
+            return
+        fi
+        dir="$parent"
+    done
+    # Fallback
+    echo "$REPO_DIR"
+}
+
+WS_ROOT="$(detect_workspace_root)"
 
 # ---------- colours / helpers ----------
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 ok()   { echo -e "  ${GREEN}[OK]${NC}  $*"; }
 warn() { echo -e "  ${YELLOW}[!!]${NC}  $*"; }
 err()  { echo -e "  ${RED}[ERR]${NC} $*"; }
+info() { echo -e "  ${CYAN}[..]${NC} $*"; }
 
 # ---------- argument parsing ----------
 MODE=""
@@ -49,7 +91,8 @@ echo "========================================================"
 echo "   RSS Workshop - AI-Driven Robot Manipulation Demo"
 echo "========================================================"
 echo ""
-echo "  Workspace : $WORKSPACE_DIR"
+echo "  Repo dir  : $REPO_DIR"
+echo "  Workspace : $WS_ROOT"
 echo ""
 
 # ============================================================
@@ -86,44 +129,96 @@ if ! ros2 pkg list 2>/dev/null | grep -q "moveit_task_constructor_core"; then
 fi
 ok "MoveIt Task Constructor"
 
-# 1d. xarm_moveit_config
-if ! ros2 pkg list 2>/dev/null | grep -q "xarm_moveit_config"; then
+# 1d. xarm_ros2 -- check if xarm_moveit_config is available
+XARM_AVAILABLE=false
+if ros2 pkg list 2>/dev/null | grep -q "xarm_moveit_config"; then
+    XARM_AVAILABLE=true
+fi
+
+# Check if xarm_ros2 source exists somewhere under the workspace
+XARM_SRC=""
+for candidate in "$WS_ROOT/src/xarm_ros2" "$REPO_DIR/src/xarm_ros2"; do
+    if [ -d "$candidate/xarm_moveit_config" ]; then
+        XARM_SRC="$candidate"
+        break
+    fi
+done
+
+if [ "$XARM_AVAILABLE" = false ] && [ -n "$XARM_SRC" ]; then
+    warn "xarm_ros2 source found at $XARM_SRC but not built yet."
+    info "Will build below."
+elif [ "$XARM_AVAILABLE" = false ]; then
     err "xarm_moveit_config not found (from xarm_ros2)."
     echo ""
-    echo "      Install xarm_ros2 from source:"
-    echo "        cd <your_workspace>/src"
-    echo "        git clone https://github.com/xArm-Developer/xarm_ros2.git"
-    echo "        cd .. && colcon build --symlink-install"
-    echo "        source install/setup.bash"
+    echo "      Clone xarm_ros2 and init its submodules:"
     echo ""
-    echo "      Or build in a separate workspace and source it before this script."
+    echo "        cd $WS_ROOT/src"
+    echo "        git clone https://github.com/xArm-Developer/xarm_ros2.git"
+    echo "        cd xarm_ros2"
+    echo "        git submodule sync"
+    echo "        git submodule update --init --remote"
+    echo ""
+    echo "      Then re-run this script."
     exit 1
 fi
-ok "xarm_moveit_config (UF850 MoveIt config)"
+
+if [ "$XARM_AVAILABLE" = true ]; then
+    ok "xarm_moveit_config (UF850 MoveIt config)"
+fi
 
 # ============================================================
 #  2. Build workspace if needed
 # ============================================================
 
-if [ ! -f "$WORKSPACE_DIR/install/setup.bash" ]; then
+# Check if mtc_tutorial is already built and available
+MTC_BUILT=false
+if [ -f "$WS_ROOT/install/setup.bash" ]; then
+    # Temporarily source to check
+    (source "$WS_ROOT/install/setup.bash" && ros2 pkg list 2>/dev/null | grep -q "mtc_tutorial") && MTC_BUILT=true
+fi
+
+if [ "$MTC_BUILT" = false ]; then
     echo ""
-    warn "Workspace not yet built. Building now..."
+    info "Building required packages (mtc_tutorial and dependencies)..."
+    echo "      workspace: $WS_ROOT"
     echo ""
-    (cd "$WORKSPACE_DIR" && colcon build --symlink-install)
+    echo "      Using: colcon build --symlink-install --packages-up-to mtc_tutorial"
+    echo "      (This skips unneeded packages like realsense_gazebo_plugin)"
     echo ""
+    (cd "$WS_ROOT" && colcon build --symlink-install --packages-up-to mtc_tutorial)
+    echo ""
+    if [ ! -f "$WS_ROOT/install/setup.bash" ]; then
+        err "Build failed. Check the output above for errors."
+        echo ""
+        echo "      Common fix for xarm_ros2 submodule errors:"
+        echo "        cd $XARM_SRC"
+        echo "        git submodule sync && git submodule update --init --remote"
+        echo "        cd $WS_ROOT && colcon build --symlink-install --packages-up-to mtc_tutorial"
+        exit 1
+    fi
 fi
 
 # Source workspace overlay
-source "$WORKSPACE_DIR/install/setup.bash"
-ok "Workspace sourced"
+source "$WS_ROOT/install/setup.bash"
+ok "Workspace sourced ($WS_ROOT/install/setup.bash)"
 
 # Verify our packages
 if ! ros2 pkg list 2>/dev/null | grep -q "mtc_tutorial"; then
     err "mtc_tutorial package not found after sourcing."
-    echo "      Try: cd $WORKSPACE_DIR && colcon build --symlink-install"
+    echo "      Try: cd $WS_ROOT && colcon build --symlink-install --packages-up-to mtc_tutorial"
     exit 1
 fi
 ok "mtc_tutorial + mtc_interface packages"
+
+if ! ros2 pkg list 2>/dev/null | grep -q "xarm_moveit_config"; then
+    err "xarm_moveit_config still not available after build."
+    echo "      Common fix:"
+    echo "        cd $XARM_SRC"
+    echo "        git submodule sync && git submodule update --init --remote"
+    echo "        cd $WS_ROOT && colcon build --symlink-install --packages-up-to mtc_tutorial"
+    exit 1
+fi
+ok "xarm_moveit_config"
 echo ""
 
 # ============================================================
@@ -171,7 +266,10 @@ case $MODE in
         echo "    - Inject demo collision objects (table, cup, bowl)"
         echo "    - Start MTC modular_task_server"
         echo ""
-        echo "  After RViz opens, trigger a plan with:"
+        echo "  After RViz opens, trigger a plan in a NEW terminal:"
+        echo ""
+        echo "    cd $WS_ROOT"
+        echo "    source install/setup.bash"
         echo "    ros2 run mtc_tutorial test_modular_tasks"
         echo ""
         echo "========================================================"
