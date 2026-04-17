@@ -123,7 +123,21 @@ Sanity check:
 ```bash
 ros2 run tf2_ros tf2_echo link_base camera_color_optical_frame
 # Values should be stable; translation should match your taped-up measurement.
+
+# Or use the bundled poller (also prints base->ee and ee->camera in one go):
+python3 scripts/diagnostics/handeye_transform_viewer.py --once
 ```
+
+Before moving on, run the all-in-one stack diagnostic. It wraps every check
+in `scripts/diagnostics/` and exits 0 only when everything is green:
+
+```bash
+python3 scripts/diagnostics/system_diagnosis.py
+```
+
+If a step fails, see `scripts/diagnostics/README.md` for the matching
+single-purpose script (`diagnose_robot_env.py`, `check_joint_limits.py`,
+`handeye_transform_viewer.py`).
 
 ## Step 9 -- Start perception
 
