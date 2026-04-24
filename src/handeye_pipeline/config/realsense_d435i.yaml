@@ -1,0 +1,5 @@
+camera:
+  model: Intel RealSense D435i
+  rgb_topic: /camera/color/image_raw
+  camera_info_topic: /camera/color/camera_info
+  optical_frame: camera_color_optical_frame

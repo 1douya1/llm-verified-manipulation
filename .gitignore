@@ -73,6 +73,8 @@ COLCON_IGNORE
 .colcon/
 
 # Large Binary Data (IMPORTANT - Keep repo size small)
+data/
+outputs/
 # Training data and models
 agent/detector/
 *.jpg
@@ -91,6 +93,7 @@ recordings/
 datasets/
 # YOLO / other ML model weights -- regenerate or download locally
 *.pt
+*.ckpt
 *.pth
 *.onnx
 *.pb

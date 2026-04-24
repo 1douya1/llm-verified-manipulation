@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from handeye_pipeline.cli import init_config_main
+
+raise SystemExit(init_config_main())

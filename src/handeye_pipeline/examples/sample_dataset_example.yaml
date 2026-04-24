@@ -1,0 +1,22 @@
+schema_version: handeye_pipeline.sample.v0.1
+notes: Example schema only. Replace transforms with real collected samples before solving.
+samples:
+  - id: sample_0001
+    timestamp: "2026-01-01T00:00:00Z"
+    frames:
+      robot_base: link_base
+      robot_ee: link_eef
+      camera_optical: camera_color_optical_frame
+      calibration_board: charuco_board
+    robot:
+      transform:
+        translation: [0.45, -0.10, 0.30]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+    board:
+      transform:
+        translation: [0.10, 0.02, 0.70]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+    detection_quality:
+      num_markers: 12
+      num_corners: 20
+      reprojection_error: 0.8

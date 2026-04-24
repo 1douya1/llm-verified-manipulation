@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from handeye_pipeline.cli import solve_main
+
+raise SystemExit(solve_main())

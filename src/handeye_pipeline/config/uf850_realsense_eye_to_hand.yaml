@@ -1,0 +1,26 @@
+calibration:
+  mode: eye_to_hand
+  solver: tsai
+  min_samples: 15
+
+robot:
+  base_frame: link_base
+  ee_frame: link_eef
+
+camera:
+  rgb_topic: /camera/color/image_raw
+  camera_info_topic: /camera/color/camera_info
+  optical_frame: camera_color_optical_frame
+
+board:
+  type: charuco
+  frame: charuco_board
+  squares_x: 5
+  squares_y: 7
+  square_length: 0.035
+  marker_length: 0.026
+  dictionary: DICT_4X4_50
+
+output:
+  sample_file: data/handeye_samples.yaml
+  result_file: data/handeye_result.yaml
