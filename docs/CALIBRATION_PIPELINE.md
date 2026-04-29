@@ -149,8 +149,9 @@ ros2 run tf2_ros tf2_echo link_base camera_color_optical_frame
 # Full TF tree (produces frames.gv / frames.pdf)
 ros2 run tf2_tools view_frames
 
-# Cross-check against a known object
-ros2 run mtc_tutorial detection_to_planning_scene.py
+# Cross-check against a known object. detection_only.launch.py starts the
+# planning-scene bridge by default.
+ros2 launch mtc_tutorial detection_only.launch.py
 # In RViz: confirm the detected cup/bowl sits on the table, not floating.
 ```
 

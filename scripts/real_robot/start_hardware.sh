@@ -20,7 +20,7 @@
 #  ensure the workspace is clear and the E-stop is within reach.
 #
 #  Usage:
-#    ./scripts/real_robot/start_hardware.sh [--ws <workspace>]
+#    ./scripts/real_robot/start_hardware.sh [--ws <workspace>] [--robot-ip <ip>]
 #
 # ============================================================
 
@@ -30,11 +30,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 WS_DIR=""
-for arg in "$@"; do
-    case "$arg" in
-        --ws=*) WS_DIR="${arg#--ws=}" ;;
-        --ws) shift; WS_DIR="$1" ;;
+ROBOT_IP="<UF850_IP>"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --ws=*) WS_DIR="${1#--ws=}" ;;
+        --ws)
+            if [ $# -lt 2 ]; then echo "--ws requires a value" >&2; exit 1; fi
+            WS_DIR="$2"
+            shift 2
+            continue
+            ;;
+        --robot-ip=*) ROBOT_IP="${1#--robot-ip=}" ;;
+        --robot-ip)
+            if [ $# -lt 2 ]; then echo "--robot-ip requires a value" >&2; exit 1; fi
+            ROBOT_IP="$2"
+            shift 2
+            continue
+            ;;
     esac
+    shift
 done
 
 # Reasonable default: repo is the workspace root
@@ -83,7 +97,7 @@ cat <<EOF
   ----------------------------------
     # Avoid Qt high-DPI scaling issues on some setups
     export QT_ENABLE_HIGHDPI_SCALING=0
-    ros2 launch mtc_tutorial pour_demo.launch.py
+    ros2 launch mtc_tutorial pour_demo.launch.py robot_ip:=${ROBOT_IP}
 
   ${GREEN}Terminal 3a -- Hand-eye calibration REPLAY${NC}
   ----------------------------------
@@ -97,8 +111,7 @@ cat <<EOF
   ${GREEN}Terminal 3b -- Detection + planning-scene bridge${NC}
   ----------------------------------
     ros2 launch mtc_tutorial detection_only.launch.py
-    # in yet another terminal, bridge detections to MoveIt scene
-    ros2 run mtc_tutorial detection_to_planning_scene.py
+    # detection_only.launch.py starts detection_to_planning_scene by default.
 
   ${GREEN}Terminal 4 -- TF sanity checks${NC}
   ----------------------------------

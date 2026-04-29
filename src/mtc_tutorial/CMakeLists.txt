@@ -50,7 +50,6 @@ install(PROGRAMS
   scripts/ros_client_tools.py
   scripts/charuco_pose_publisher.py
   scripts/object_single_shot_detection.py
-  # scripts/object_florence_visual_detection.py  # File not included in minimal repo
   scripts/object_marker_publisher.py
   scripts/detection_to_planning_scene.py
   scripts/spawn_demo_scene.py
