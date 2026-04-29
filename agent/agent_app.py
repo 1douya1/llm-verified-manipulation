@@ -104,6 +104,11 @@ def build_system_prompt() -> str:
 ### 复合动作工具
 - **execute_full_pour_sequence(source_object_id, target_object_id)**: 执行完整倒水序列
 
+### 执行模式
+- 默认真机行为是规划成功后直接执行，不需要额外确认。
+- 如果用户明确要求“只规划/预览/不要执行”，调用动作工具时传入 `plan_only=True`。
+- 当程序以 `--dry-run` 启动时，动作工具会强制只规划不执行。
+
 ## 参数推断规则（智能决策）
 
 ### 1. 单个物体场景

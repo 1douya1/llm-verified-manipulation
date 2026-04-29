@@ -117,7 +117,7 @@ transparency:
   project; see [docs/OPTIONAL_INTEGRATIONS.md](docs/OPTIONAL_INTEGRATIONS.md)
   (added in Phase 2).
 - `pointcloud_geometry_fitter.py`, `publish_camera_root_from_handeye.py`,
-  `launch/florence_visual_detection.launch.py` — these originate from a
+  and the Florence-2 visual detection node/launch — these originate from a
   separate maniagent project and are not part of the RSS pipeline.
 - `Langraph_Agent/baselines/` and `Langraph_Agent/detector/` — research
   baselines and an alternative detector that live in the parent

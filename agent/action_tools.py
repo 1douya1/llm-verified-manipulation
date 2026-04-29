@@ -6,6 +6,7 @@ Action Tools - 将MTC Action Library封装为LangChain Tools
 from typing import Optional, List, Dict, Any
 from langchain_core.tools import tool
 import json
+import os
 
 # 导入场景管理器和动作库
 from scene_manager import get_scene_manager
@@ -29,6 +30,15 @@ def _get_lib():
 def _get_scene():
     """获取scene manager实例"""
     return get_scene_manager()
+
+
+def _effective_plan_only(plan_only: bool) -> bool:
+    """Dry-run mode always plans without sending motion commands."""
+    return plan_only or os.getenv("AGENT_DRY_RUN", "").lower() in ("1", "true", "yes")
+
+
+def _mode_prefix(plan_only: bool) -> str:
+    return "规划成功" if plan_only else "成功"
 
 
 # ==================== 辅助工具 ====================
@@ -133,11 +143,12 @@ def ask_user_clarification(question: str, options: List[str]) -> str:
 # ==================== 机器人动作工具 ====================
 
 @tool
-def pick_object(object_id: Optional[str] = None) -> str:
+def pick_object(object_id: Optional[str] = None, plan_only: bool = False) -> str:
     """抓取指定的物体。
     
     Args:
         object_id: 要抓取的物体ID (如 "object_1")。如果为None则使用默认位置。
+        plan_only: 是否只规划不执行。默认False，真机模式下规划成功后直接执行。
         
     Returns:
         执行结果描述
@@ -153,18 +164,20 @@ def pick_object(object_id: Optional[str] = None) -> str:
     """
     lib = _get_lib()
     scene = _get_scene()
+    plan_only = _effective_plan_only(plan_only)
     
     # 执行pick动作
     try:
-        result = lib.execute("pick", object_id=object_id)
+        result = lib.execute("pick", object_id=object_id, plan_only=plan_only)
         
         if result.success:
             # 更新场景状态
-            scene.update_robot_holding(object_id)
+            if not plan_only:
+                scene.update_robot_holding(object_id)
             scene.set_last_action("pick")
             
             obj_desc = object_id if object_id else "默认位置的物体"
-            return f"✅ 成功抓取 {obj_desc}，耗时 {result.duration_sec:.2f}秒"
+            return f"✅ {_mode_prefix(plan_only)}抓取 {obj_desc}，耗时 {result.duration_sec:.2f}秒"
         else:
             error_msg = result.error_msg or "未知错误"
             return f"❌ 抓取失败: {error_msg}"
@@ -174,12 +187,14 @@ def pick_object(object_id: Optional[str] = None) -> str:
 
 
 @tool
-def place_object(object_id: Optional[str] = None, return_to_origin: bool = True) -> str:
+def place_object(object_id: Optional[str] = None, return_to_origin: bool = True,
+                 plan_only: bool = False) -> str:
     """放置当前抓取的物体。
     
     Args:
         object_id: 目标位置ID (通常是原物体的ID)。如果为None，使用当前抓取的物体ID。
         return_to_origin: 是否放回原位 (默认True)
+        plan_only: 是否只规划不执行。默认False，真机模式下规划成功后直接执行。
         
     Returns:
         执行结果描述
@@ -195,6 +210,7 @@ def place_object(object_id: Optional[str] = None, return_to_origin: bool = True)
     """
     lib = _get_lib()
     scene = _get_scene()
+    plan_only = _effective_plan_only(plan_only)
     
     # 检查是否正在抓取物体
     holding = scene.get_robot_holding()
@@ -206,16 +222,20 @@ def place_object(object_id: Optional[str] = None, return_to_origin: bool = True)
     
     # 执行place动作
     try:
-        params = {"return_to_origin": 1.0 if return_to_origin else 0.0}
+        params = {
+            "return_to_origin": 1.0 if return_to_origin else 0.0,
+            "plan_only": plan_only,
+        }
         result = lib.execute("place", object_id=target_id, **params)
         
         if result.success:
             # 更新场景状态
-            scene.clear_robot_holding()
+            if not plan_only:
+                scene.clear_robot_holding()
             scene.set_last_action("place")
             
             action_desc = "放回原位" if return_to_origin else f"放置到 {target_id}"
-            return f"✅ 成功{action_desc}，耗时 {result.duration_sec:.2f}秒"
+            return f"✅ {_mode_prefix(plan_only)}{action_desc}，耗时 {result.duration_sec:.2f}秒"
         else:
             error_msg = result.error_msg or "未知错误"
             return f"❌ 放置失败: {error_msg}"
@@ -226,13 +246,14 @@ def place_object(object_id: Optional[str] = None, return_to_origin: bool = True)
 
 @tool
 def move_and_pour(target_object_id: Optional[str] = None, should_pour: bool = True, 
-                  velocity_scaling: float = 0.15) -> str:
+                  velocity_scaling: float = 0.15, plan_only: bool = False) -> str:
     """移动到目标位置并选择性地执行倒水动作。
     
     Args:
         target_object_id: 目标物体ID (如 "object_2")。如果为None，移动到默认倒水位置。
         should_pour: 是否执行倒水动作 (默认True)
         velocity_scaling: 速度缩放因子 0.05-0.3 (默认0.15)
+        plan_only: 是否只规划不执行。默认False，真机模式下规划成功后直接执行。
         
     Returns:
         执行结果描述
@@ -248,17 +269,20 @@ def move_and_pour(target_object_id: Optional[str] = None, should_pour: bool = Tr
     """
     lib = _get_lib()
     scene = _get_scene()
+    plan_only = _effective_plan_only(plan_only)
     
     # 检查是否正在抓取物体
     holding = scene.get_robot_holding()
+    warning = ""
     if not holding:
-        return "⚠️ 警告: 机器人没有抓取物体，但仍会尝试执行移动动作"
+        warning = "⚠️ 警告: 机器人没有抓取物体，但仍会尝试执行移动动作\n"
     
     # 执行move_to_pour动作
     try:
         params = {
             "pour_execute": 1.0 if should_pour else 0.0,
-            "velocity_scaling": velocity_scaling
+            "velocity_scaling": velocity_scaling,
+            "plan_only": plan_only,
         }
         result = lib.execute("move_to_pour", object_id=target_object_id, **params)
         
@@ -268,7 +292,7 @@ def move_and_pour(target_object_id: Optional[str] = None, should_pour: bool = Tr
             
             target_desc = target_object_id if target_object_id else "默认倒水位置"
             action_desc = "并执行倒水" if should_pour else "但未倒水"
-            return f"✅ 成功移动到 {target_desc} {action_desc}，耗时 {result.duration_sec:.2f}秒"
+            return f"{warning}✅ {_mode_prefix(plan_only)}移动到 {target_desc} {action_desc}，耗时 {result.duration_sec:.2f}秒"
         else:
             error_msg = result.error_msg or "未知错误"
             return f"❌ 移动/倒水失败: {error_msg}"
@@ -278,9 +302,12 @@ def move_and_pour(target_object_id: Optional[str] = None, should_pour: bool = Tr
 
 
 @tool
-def return_home() -> str:
+def return_home(plan_only: bool = False) -> str:
     """将机器人手臂返回到安全的初始位置。
     
+    Args:
+        plan_only: 是否只规划不执行。默认False，真机模式下规划成功后直接执行。
+
     Returns:
         执行结果描述
         
@@ -295,16 +322,17 @@ def return_home() -> str:
     """
     lib = _get_lib()
     scene = _get_scene()
+    plan_only = _effective_plan_only(plan_only)
     
     # 执行return_home动作
     try:
-        result = lib.execute("return_home")
+        result = lib.execute("return_home", plan_only=plan_only)
         
         if result.success:
             # 更新场景状态
             scene.set_last_action("return_home")
             
-            return f"✅ 成功返回初始位置，耗时 {result.duration_sec:.2f}秒"
+            return f"✅ {_mode_prefix(plan_only)}返回初始位置，耗时 {result.duration_sec:.2f}秒"
         else:
             error_msg = result.error_msg or "未知错误"
             return f"❌ 返回初始位置失败: {error_msg}"
@@ -315,12 +343,14 @@ def return_home() -> str:
 
 @tool
 def execute_full_pour_sequence(source_object_id: Optional[str] = None, 
-                               target_object_id: Optional[str] = None) -> str:
+                               target_object_id: Optional[str] = None,
+                               plan_only: bool = False) -> str:
     """执行完整的倒水任务序列: pick → move_and_pour → place → return_home
     
     Args:
         source_object_id: 源物体ID (要抓取的杯子)
         target_object_id: 目标物体ID (倒水的目标)
+        plan_only: 是否只规划不执行。默认False，真机模式下规划成功后直接执行。
         
     Returns:
         完整序列的执行结果
@@ -335,28 +365,37 @@ def execute_full_pour_sequence(source_object_id: Optional[str] = None,
     - 任何一步失败都会停止后续步骤
     - 推荐用于完整的倒水任务
     """
+    plan_only = _effective_plan_only(plan_only)
     results = []
     
     # Step 1: Pick
-    pick_result = pick_object(source_object_id)
+    pick_result = pick_object.invoke({"object_id": source_object_id, "plan_only": plan_only})
     results.append(f"1. 抓取: {pick_result}")
     if "❌" in pick_result:
         return "\n".join(results) + "\n\n⚠️ 序列在pick步骤失败，已停止"
     
     # Step 2: Move and Pour
-    pour_result = move_and_pour(target_object_id, should_pour=True)
+    pour_result = move_and_pour.invoke({
+        "target_object_id": target_object_id,
+        "should_pour": True,
+        "plan_only": plan_only,
+    })
     results.append(f"2. 移动并倒水: {pour_result}")
     if "❌" in pour_result:
         return "\n".join(results) + "\n\n⚠️ 序列在move_and_pour步骤失败，已停止"
     
     # Step 3: Place
-    place_result = place_object(source_object_id, return_to_origin=True)
+    place_result = place_object.invoke({
+        "object_id": source_object_id,
+        "return_to_origin": True,
+        "plan_only": plan_only,
+    })
     results.append(f"3. 放置: {place_result}")
     if "❌" in place_result:
         return "\n".join(results) + "\n\n⚠️ 序列在place步骤失败，已停止"
     
     # Step 4: Return Home
-    home_result = return_home()
+    home_result = return_home.invoke({"plan_only": plan_only})
     results.append(f"4. 返回初始位置: {home_result}")
     
     summary = "\n".join(results)
@@ -410,5 +449,3 @@ if __name__ == "__main__":
     print(f"共有 {len(ALL_TOOLS)} 个工具可用")
     for tool in ALL_TOOLS:
         print(f"  - {tool.name}: {tool.description[:50]}...")
-
-

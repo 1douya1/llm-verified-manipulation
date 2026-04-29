@@ -83,7 +83,7 @@ cable and rerun `fix_realsense_issues.sh`.
 ## Step 6 -- Verify the arm
 
 ```bash
-ros2 launch mtc_tutorial pour_demo.launch.py
+ros2 launch mtc_tutorial pour_demo.launch.py robot_ip:=<UF850_IP>
 ```
 
 RViz opens. Check that:
@@ -142,15 +142,20 @@ single-purpose script (`diagnose_robot_env.py`, `check_joint_limits.py`,
 ## Step 9 -- Start perception
 
 ```bash
-# Terminal A: detection
+# Detection + planning-scene bridge
 ros2 launch mtc_tutorial detection_only.launch.py
-# Terminal B: detection -> planning scene
-ros2 run mtc_tutorial detection_to_planning_scene.py
 ```
 
 RViz should now show collision objects matching the real cups/bowls on the
 table. If objects appear at the camera origin instead of on the table, the
 TF chain from Step 8 is wrong -- re-verify before proceeding.
+
+For bridge-only debugging, disable the built-in bridge and start it manually:
+
+```bash
+ros2 launch mtc_tutorial detection_only.launch.py enable_scene_bridge:=false
+ros2 run mtc_tutorial detection_to_planning_scene.py
+```
 
 ## Step 10 -- Run the agent
 
@@ -161,7 +166,9 @@ python3 agent_app.py
 ```
 
 The agent plans a pick -> move -> pour -> place sequence, displays the plan
-in RViz, and (after your confirmation) sends it to the MTC action server.
+in RViz, and sends it to the MTC action server without an extra confirmation
+gate. Use explicit `plan_only=True` tool calls or `python3 agent_app.py
+--dry-run` when you want planning-only behavior.
 **Keep your hand on the E-stop.**
 
 ---
@@ -177,7 +184,7 @@ the RSS pipeline:
 - `publish_camera_root_from_handeye.py` -- alternative
   `link_base -> camera_link` TF publisher that composes handeye with the
   intrinsic camera TF chain.
-- `florence_visual_detection.launch.py` -- alternative perception backend
+- Florence-2 visual detection launch/node -- alternative perception backend
   using Florence-2 instead of YOLOv8.
 
 These are mentioned only so that someone reading older logs or config

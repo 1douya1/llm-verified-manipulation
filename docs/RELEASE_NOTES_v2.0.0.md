@@ -93,7 +93,7 @@ repo to clone.
 These items are real, but live elsewhere and are out of scope for this repo:
 
 - `pointcloud_geometry_fitter.py`, `publish_camera_root_from_handeye.py`,
-  `launch/florence_visual_detection.launch.py` — belong to a separate
+  and the Florence-2 visual detection node/launch — belong to a separate
   maniagent project; only documented here for cross-reference.
 - `Langraph_Agent/baselines/` and `Langraph_Agent/detector/` — research
   baselines; not migrated.

@@ -8,6 +8,8 @@ import os
 
 
 def generate_launch_description():
+    robot_ip = LaunchConfiguration('robot_ip')
+    report_type = LaunchConfiguration('report_type')
     add_gripper = LaunchConfiguration('add_gripper')
 
     xarm_moveit_launch = IncludeLaunchDescription(
@@ -21,6 +23,8 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
+            'robot_ip': robot_ip,
+            'report_type': report_type,
             'add_gripper': add_gripper,
         }.items()
     )
@@ -38,7 +42,9 @@ def generate_launch_description():
 # )
 
     return LaunchDescription([
+        DeclareLaunchArgument('robot_ip', description='IP address of the UF850 controller'),
+        DeclareLaunchArgument('report_type', default_value='normal', description='UF850 TCP report type'),
         DeclareLaunchArgument('add_gripper', default_value='true', description='Attach gripper to uf850'),
         xarm_moveit_launch,
         server_node,
-    ]) 
+    ])

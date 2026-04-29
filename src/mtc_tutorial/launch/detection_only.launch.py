@@ -7,6 +7,7 @@ Only launches object detection and marker publisher, does not launch camera and 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
 from launch_ros.actions import Node
 
 
@@ -84,6 +85,11 @@ def generate_launch_description():
     )
 
     # Bridge parameters
+    enable_scene_bridge_arg = DeclareLaunchArgument(
+        'enable_scene_bridge',
+        default_value='true',
+        description='Whether to launch detection_to_planning_scene in this launch file'
+    )
     bridge_only_cup_arg = DeclareLaunchArgument(
         'bridge_only_cup',
         default_value='false',
@@ -140,6 +146,7 @@ def generate_launch_description():
         package='mtc_tutorial',
         executable='detection_to_planning_scene.py',
         name='detection_to_planning_scene',
+        condition=IfCondition(LaunchConfiguration('enable_scene_bridge')),
         parameters=[{
             'topic': 'object_detection_result',
             'only_cup': LaunchConfiguration('bridge_only_cup'),
@@ -164,6 +171,7 @@ def generate_launch_description():
         depth_scale_arg,
         marker_lifetime_arg,
         use_base_frame_arg,
+        enable_scene_bridge_arg,
         bridge_only_cup_arg,
         bridge_min_conf_arg,
         bridge_allowed_classes_arg,
@@ -172,4 +180,4 @@ def generate_launch_description():
         oneshot_detection_node,
         marker_publisher_node,
         detection_to_scene_node,
-    ]) 
+    ])

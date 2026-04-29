@@ -26,6 +26,7 @@
 #    ./scripts/run_demo.sh --plan-only   # MoveIt2 + RViz + MTC (no hardware)
 #    ./scripts/run_demo.sh --agent       # plan-only + LLM agent dry-run
 #    ./scripts/run_demo.sh --real-robot  # real-robot launch plan (needs hw)
+#    ./scripts/run_demo.sh --real-robot --robot-ip 192.168.1.237
 #    ./scripts/run_demo.sh --help
 #
 # ============================================================
@@ -73,27 +74,37 @@ info() { echo -e "  ${CYAN}[..]${NC} $*"; }
 
 # ---------- argument parsing ----------
 MODE=""
-for arg in "$@"; do
-    case "$arg" in
+ROBOT_IP="<UF850_IP>"
+while [ $# -gt 0 ]; do
+    case "$1" in
         --plan-only)   MODE="plan-only" ;;
         --agent)       MODE="agent" ;;
         --real-robot)  MODE="real-robot" ;;
+        --robot-ip=*)  ROBOT_IP="${1#--robot-ip=}" ;;
+        --robot-ip)
+            if [ $# -lt 2 ]; then err "--robot-ip requires a value"; exit 1; fi
+            ROBOT_IP="$2"
+            shift 2
+            continue
+            ;;
         --help|-h)
-            echo "Usage: $0 [--plan-only | --agent | --real-robot | --help]"
+            echo "Usage: $0 [--plan-only | --agent | --real-robot [--robot-ip <ip>] | --help]"
             echo ""
             echo "  --plan-only    MoveIt2 + RViz + MTC demo (no hardware)"
             echo "  --agent        Plan-only pipeline + LLM agent dry-run"
             echo "  --real-robot   Print the guided real-robot launch plan"
             echo "                 (see docs/REAL_ROBOT_QUICK_START.md)"
+            echo "  --robot-ip     UF850 controller IP used in the real-robot plan"
             echo "  --help         Show this message"
             exit 0
             ;;
     esac
+    shift
 done
 
 # ---------- early-exit for real-robot: delegate to the real_robot helper ----------
 if [ "$MODE" = "real-robot" ]; then
-    exec "$SCRIPT_DIR/real_robot/start_hardware.sh" --ws "$REPO_DIR"
+    exec "$SCRIPT_DIR/real_robot/start_hardware.sh" --ws "$REPO_DIR" --robot-ip "$ROBOT_IP"
 fi
 
 echo ""
@@ -269,7 +280,7 @@ if [ -z "$MODE" ]; then
     case $CHOICE in
         1) MODE="plan-only" ;;
         2) MODE="agent" ;;
-        3) exec "$SCRIPT_DIR/real_robot/start_hardware.sh" --ws "$WS_ROOT" ;;
+        3) exec "$SCRIPT_DIR/real_robot/start_hardware.sh" --ws "$WS_ROOT" --robot-ip "$ROBOT_IP" ;;
         4) echo "Cancelled."; exit 0 ;;
         *) err "Invalid choice: $CHOICE"; exit 1 ;;
     esac
