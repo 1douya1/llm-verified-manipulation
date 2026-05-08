@@ -167,6 +167,26 @@ for candidate in "$XARM_SUBMODULE_DIR" "$WS_ROOT/src/xarm_ros2"; do
     fi
 done
 
+# Some local setups build xarm_ros2 from $REPO_DIR/src, which creates
+# $REPO_DIR/src/install.  Source that underlay before this repo's overlay so
+# xarm_moveit_config is visible while root install/mtc_tutorial still wins.
+XARM_UNDERLAY=""
+for candidate in "$REPO_DIR/src/install" "$WS_ROOT/src/install"; do
+    if [ -f "$candidate/setup.bash" ] && \
+       (source "$candidate/setup.bash" && ros2 pkg list 2>/dev/null | grep -q "xarm_moveit_config"); then
+        XARM_UNDERLAY="$candidate"
+        break
+    fi
+done
+
+if [ "$XARM_AVAILABLE" = false ] && [ -n "$XARM_UNDERLAY" ]; then
+    info "Found xarm_ros2 install underlay at $XARM_UNDERLAY"
+    source "$XARM_UNDERLAY/setup.bash"
+    if ros2 pkg list 2>/dev/null | grep -q "xarm_moveit_config"; then
+        XARM_AVAILABLE=true
+    fi
+fi
+
 # Submodule directory exists but is empty (submodule not initialized)
 if [ -z "$XARM_SRC" ] && [ -d "$XARM_SUBMODULE_DIR" ] && [ -z "$(ls -A "$XARM_SUBMODULE_DIR" 2>/dev/null)" ]; then
     err "src/xarm_ros2 is an empty submodule directory."
@@ -218,7 +238,11 @@ if [ "$MTC_BUILT" = false ]; then
     echo "      Using: colcon build --symlink-install --packages-up-to mtc_tutorial"
     echo "      (This skips unneeded packages like realsense_gazebo_plugin)"
     echo ""
-    (cd "$WS_ROOT" && colcon build --symlink-install --packages-up-to mtc_tutorial)
+    if [ "$XARM_AVAILABLE" = false ] && [ -n "$XARM_SRC" ]; then
+        (cd "$WS_ROOT" && colcon build --symlink-install --packages-up-to xarm_moveit_config mtc_tutorial)
+    else
+        (cd "$WS_ROOT" && colcon build --symlink-install --packages-up-to mtc_tutorial)
+    fi
     echo ""
     if [ ! -f "$WS_ROOT/install/setup.bash" ]; then
         err "Build failed. Check the output above for errors."
@@ -231,6 +255,9 @@ if [ "$MTC_BUILT" = false ]; then
 fi
 
 # Source workspace overlay
+if [ -n "$XARM_UNDERLAY" ]; then
+    source "$XARM_UNDERLAY/setup.bash"
+fi
 source "$WS_ROOT/install/setup.bash"
 ok "Workspace sourced ($WS_ROOT/install/setup.bash)"
 

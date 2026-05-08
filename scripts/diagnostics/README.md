@@ -5,7 +5,9 @@ correctly **before** you trust it with motion. They are intentionally
 ROS-light: each script does one focused check, prints a clear
 `[OK]/[WARN]/[ERR]` result, and exits.
 
-> Always run these AFTER `source install/setup.bash` in the same shell.
+> Always run these AFTER `source install/setup.bash` in the same shell. If conda
+> is active, prefer `/usr/bin/python3 ...` for ROS Humble diagnostics so `rclpy`
+> uses Ubuntu's Python 3.10 ABI.
 
 ## Quick reference
 
@@ -28,6 +30,14 @@ ros2 launch easy_handeye2 publish.launch.py name:=uf850_d435i_eih &
 python3 scripts/diagnostics/system_diagnosis.py
 ```
 
+If `xarm_ros2` was built separately into `src/install`, source it before the
+outer overlay:
+
+```bash
+source src/install/setup.bash
+source install/setup.bash
+```
+
 If `system_diagnosis.py` returns 0, you're cleared to proceed to
 `docs/REAL_ROBOT_QUICK_START.md` step 8 (perception bringup).
 
@@ -36,6 +46,9 @@ If `system_diagnosis.py` returns 0, you're cleared to proceed to
 - **`move_group` missing**: plug-in USB / camera alone does **not** start
   MoveIt. Launch `uf850_moveit_fake.launch.py` or `uf850_moveit_realmove.launch.py`
   first, then re-run diagnostics.
+- **`xarm_moveit_config` missing but `src/install` exists**: source
+  `src/install/setup.bash` before `install/setup.bash`, then rebuild the outer
+  overlay once to persist that underlay chain.
 - **`link_base` does not exist in /tf**: the robot model + state publisher
   are not running yet — same fix as above (MoveIt / `pour_demo.launch.py`).
 - **Camera step fails while the device is plugged in**: the RealSense ROS
