@@ -196,7 +196,17 @@ colcon build --symlink-install
 
 **For C++ changes**:
 ```bash
+source install/setup.bash
 colcon build --symlink-install --packages-select mtc_tutorial
+source install/setup.bash
+```
+
+If `xarm_ros2` was built separately under `src/install`, source that underlay
+before rebuilding the outer package:
+
+```bash
+source src/install/setup.bash
+colcon build --symlink-install --packages-select mtc_interface mtc_tutorial
 source install/setup.bash
 ```
 

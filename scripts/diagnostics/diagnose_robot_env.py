@@ -15,9 +15,95 @@ Run after sourcing the workspace:
 import subprocess
 import sys
 import time
+import os
+from pathlib import Path
 
-import rclpy
-from rclpy.node import Node
+try:
+    from ament_index_python.packages import PackageNotFoundError, get_package_prefix
+except ImportError as exc:
+    print("\n[ERR] ROS Python packages are not importable.")
+    print("      Source ROS/workspace first, for example:")
+    print("        source /opt/ros/humble/setup.bash")
+    print("        source install/setup.bash")
+    print(f"      Python executable: {sys.executable}")
+    print(f"      Import error: {exc}")
+    sys.exit(5)
+
+try:
+    import rclpy
+    from rclpy.node import Node
+except ImportError as exc:
+    print("\n[ERR] rclpy cannot be imported by the active Python interpreter.")
+    print("      ROS 2 Humble is normally built for Ubuntu's system Python 3.10.")
+    print("      Your active interpreter is:")
+    print(f"        {sys.executable}")
+    print(f"        Python {sys.version.split()[0]}")
+    print("      Fix this shell with one of:")
+    print("        conda deactivate")
+    print("        source install/setup.bash")
+    print("        /usr/bin/python3 scripts/diagnostics/diagnose_robot_env.py")
+    print(f"      Import error: {exc}")
+    sys.exit(5)
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _package_prefix(name: str) -> str | None:
+    try:
+        return get_package_prefix(name)
+    except PackageNotFoundError:
+        return None
+
+
+def check_overlay_consistency():
+    """Check whether the active shell sees the expected workspace overlays."""
+    print("\n" + "="*60)
+    print("🔍 诊断：检查ROS overlay一致性")
+    print("="*60)
+
+    expected_root_install = str(REPO_ROOT / 'install')
+    expected_xarm_underlay = str(REPO_ROOT / 'src' / 'install')
+    packages = ['mtc_tutorial', 'mtc_interface', 'xarm_moveit_config']
+    prefixes = {pkg: _package_prefix(pkg) for pkg in packages}
+
+    ok = True
+    for pkg, prefix in prefixes.items():
+        if prefix:
+            print(f"   ✅ {pkg}: {prefix}")
+        else:
+            print(f"   ❌ {pkg}: Package not found")
+            ok = False
+
+    mtc_prefix = prefixes.get('mtc_tutorial') or ''
+    xarm_prefix = prefixes.get('xarm_moveit_config') or ''
+
+    if mtc_prefix.startswith(expected_xarm_underlay) and (REPO_ROOT / 'install' / 'setup.bash').exists():
+        print("   ⚠️ mtc_tutorial 来自 src/install，而不是根目录 install。")
+        print("      请在当前终端重新执行：source install/setup.bash")
+        ok = False
+
+    if not xarm_prefix and (REPO_ROOT / 'src' / 'install' / 'setup.bash').exists():
+        print("   ⚠️ 检测到 src/install/setup.bash，但当前 overlay 没有 xarm_moveit_config。")
+        print("      立刻修复当前终端：")
+        print("        source src/install/setup.bash")
+        print("        source install/setup.bash")
+        print("      持久修复根目录 install/setup.bash：")
+        print("        source src/install/setup.bash")
+        print("        colcon build --symlink-install --packages-select mtc_interface mtc_tutorial")
+        ok = False
+
+    ament_prefixes = [p for p in (os.environ.get('AMENT_PREFIX_PATH') or '').split(':') if p]
+    if expected_root_install in ament_prefixes and expected_xarm_underlay in ament_prefixes:
+        if ament_prefixes.index(expected_root_install) < ament_prefixes.index(expected_xarm_underlay):
+            print("   ✅ overlay顺序正确：根目录 install 覆盖 src/install")
+        else:
+            print("   ⚠️ overlay顺序异常：src/install 排在根目录 install 前面。")
+            print("      请执行：source src/install/setup.bash && source install/setup.bash")
+            ok = False
+
+    print("\n" + "="*60)
+    return ok
 
 def check_move_group():
     """检查MoveGroup是否运行"""
@@ -161,6 +247,8 @@ def main() -> int:
     print("🔍 MTC Action Library 环境诊断")
     print("="*70)
     
+    overlay_ok = check_overlay_consistency()
+
     # 检查动作库
     lib_ok = check_mtc_action_library()
     
@@ -172,19 +260,25 @@ def main() -> int:
     print("📊 诊断总结")
     print("="*70)
     
-    if lib_ok and mg_ok:
+    if overlay_ok and lib_ok and mg_ok:
         print("\n[OK] Environment is fully ready.")
         print("\nNext step: drive a single MTC action through the library, e.g.:")
         print("  python3 -c \"from mtc_action_library import get_action_library;\\")
         print("              lib = get_action_library();\\")
         print("              print(lib.execute('return_home'))\"")
         rc = 0
-    elif lib_ok and not mg_ok:
+    elif overlay_ok and lib_ok and not mg_ok:
         print("\n[WARN] Action library is installed, but move_group is NOT running.")
         print("\nLaunch move_group first (in another terminal):")
         print("  ros2 launch xarm_moveit_config uf850_moveit_realmove.launch.py robot_ip:=<IP>")
         print("Then re-source this workspace and re-run this script.")
         rc = 1
+    elif not overlay_ok:
+        print("\n[ERR] ROS overlay is inconsistent.")
+        print("\nRe-source in this order:")
+        print("  source src/install/setup.bash   # xarm_ros2 underlay, if present")
+        print("  source install/setup.bash       # project overlay")
+        rc = 4
     elif not lib_ok:
         print("\n[ERR] Action library is not importable.")
         print("\nRebuild:")
@@ -209,9 +303,6 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(3)
-
-
-
 
 
 

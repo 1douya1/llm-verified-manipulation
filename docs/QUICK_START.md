@@ -65,6 +65,18 @@ colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
 ```
 
+Verify the overlay resolves the two key packages from the expected places:
+
+```bash
+ros2 pkg prefix mtc_tutorial
+ros2 pkg prefix xarm_moveit_config
+```
+
+`mtc_tutorial` should resolve to this workspace's `install/mtc_tutorial`.
+`xarm_moveit_config` may resolve either to the same workspace install or to an
+underlay such as `RSS_Workshop/src/install/xarm_moveit_config` if you built
+`xarm_ros2` separately from `RSS_Workshop/src`.
+
 **Workspace layout** (after build):
 ```
 rss_ws/                  <- workspace root, run colcon build HERE
@@ -241,14 +253,47 @@ colcon build --symlink-install --packages-up-to mtc_tutorial
 ```bash
 # Verify xarm_ros2 is installed
 ros2 pkg list | grep xarm_moveit_config
+```
 
-# If not found, clone and build (see Step 2 above)
+If you already have `src/install/setup.bash` from a separate xArm build, source
+it before the outer workspace overlay:
+
+```bash
+source src/install/setup.bash
+source install/setup.bash
+ros2 pkg prefix xarm_moveit_config
+```
+
+To make that source order persistent in `install/setup.bash`, rebuild the outer
+packages once with the xArm underlay already active:
+
+```bash
+source src/install/setup.bash
+colcon build --symlink-install --packages-select mtc_interface mtc_tutorial
+source install/setup.bash
+```
+
+If the package is still missing, initialize and build `xarm_ros2`:
+
+```bash
 cd <workspace>/src
 git clone https://github.com/xArm-Developer/xarm_ros2.git
 cd xarm_ros2 && git submodule sync && git submodule update --init --remote
 cd <workspace>
 colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
+```
+
+### `rclpy._rclpy_pybind11` missing while running diagnostics
+
+ROS 2 Humble is built against Ubuntu's system Python 3.10. If conda's Python
+3.12 is first on `PATH`, diagnostics can fail even when the ROS overlay is
+correct.
+
+```bash
+conda deactivate
+source install/setup.bash
+/usr/bin/python3 scripts/diagnostics/diagnose_robot_env.py
 ```
 
 ### "Package not found" after build

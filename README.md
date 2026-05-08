@@ -177,6 +177,10 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
 
+# Sanity check: mtc_tutorial should come from this workspace, xarm from xarm_ros2
+ros2 pkg prefix mtc_tutorial
+ros2 pkg prefix xarm_moveit_config
+
 # 4. Launch plan-only demo
 ./scripts/run_demo.sh --plan-only
 ```
@@ -192,6 +196,11 @@ ros2 run mtc_tutorial test_modular_tasks
 > Note: `--packages-up-to mtc_tutorial` builds only `mtc_tutorial` and its
 > dependencies (`mtc_interface`, `xarm_moveit_config`, ...), skipping unrelated
 > packages (`realsense_gazebo_plugin`, etc.) that may fail on some systems.
+
+> If you previously ran `colcon build` from `RSS_Workshop/src`, you may have a
+> second overlay at `src/install`. Source that underlay before the repo overlay:
+> `source src/install/setup.bash && source install/setup.bash`. To make the fix
+> persistent, rebuild the repo overlay once after sourcing `src/install`.
 
 ---
 
