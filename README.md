@@ -154,8 +154,11 @@ pip install -r agent/simple_requirements.txt
 For the real-robot perception layer install in addition:
 
 ```bash
-pip install opencv-python ultralytics pyrealsense2
+/usr/bin/python3 -m pip install "numpy<2" "opencv-python==4.10.0.84" ultralytics pyrealsense2
 ```
+
+ROS 2 Humble's `cv_bridge` is built against NumPy 1.x on Ubuntu 22.04, so
+keep the system Python used by ROS on `numpy<2`.
 
 ---
 
@@ -221,8 +224,8 @@ colcon build --symlink-install --packages-up-to mtc_tutorial
 source install/setup.bash
 
 # 2. Python deps for perception + agent
-pip install -r agent/simple_requirements.txt
-pip install opencv-python ultralytics pyrealsense2
+/usr/bin/python3 -m pip install -r agent/simple_requirements.txt
+/usr/bin/python3 -m pip install "numpy<2" "opencv-python==4.10.0.84" ultralytics pyrealsense2
 
 # 3. Guided launch plan (prints the 4-terminal command set)
 ./scripts/run_demo.sh --real-robot
