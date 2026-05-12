@@ -138,7 +138,7 @@ def generate_launch_description():
             'marker_frame': LaunchConfiguration('charuco_frame'),
             'calibration_file': LaunchConfiguration('calibration_file'),
             'board_size_x': 7,
-            'board_size_y': 9,
+            'board_size_y': 5,
             'square_length': 0.025,
             'marker_length': 0.018,
         }],

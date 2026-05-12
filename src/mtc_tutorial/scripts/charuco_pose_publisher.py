@@ -38,7 +38,7 @@ class CharucoPosePublisher(Node):
         self.declare_parameter('calibration_file', 'realsense_calibration_opencv.yaml')
         self.declare_parameter('use_camera_info', True)  # 新增：是否使用camera_info
         self.declare_parameter('board_size_x', 7)
-        self.declare_parameter('board_size_y', 9)
+        self.declare_parameter('board_size_y', 5)
         self.declare_parameter('square_length', 0.025)  # 25mm
         self.declare_parameter('marker_length', 0.018)  # 18mm
         
@@ -108,17 +108,46 @@ class CharucoPosePublisher(Node):
     def setup_charuco_detector(self):
         """设置Charuco检测器"""
         # 创建Aruco字典和Charuco板
-        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-        self.charuco_board = cv2.aruco.CharucoBoard(
-            (self.board_size_x, self.board_size_y),
-            self.square_length,
-            self.marker_length,
-            self.aruco_dict
-        )
+        if not hasattr(cv2, 'aruco'):
+            raise RuntimeError(
+                "当前 OpenCV 没有 cv2.aruco 模块，请安装 opencv-contrib-python 或 python3-opencv contrib 包"
+            )
+
+        if hasattr(cv2.aruco, 'getPredefinedDictionary'):
+            self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        else:
+            self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
+
+        if hasattr(cv2.aruco, 'CharucoBoard'):
+            self.charuco_board = cv2.aruco.CharucoBoard(
+                (self.board_size_x, self.board_size_y),
+                self.square_length,
+                self.marker_length,
+                self.aruco_dict
+            )
+        elif hasattr(cv2.aruco, 'CharucoBoard_create'):
+            self.charuco_board = cv2.aruco.CharucoBoard_create(
+                self.board_size_x,
+                self.board_size_y,
+                self.square_length,
+                self.marker_length,
+                self.aruco_dict
+            )
+        else:
+            raise RuntimeError(
+                "当前 OpenCV aruco 模块缺少 CharucoBoard API，请安装带 aruco/charuco 的 opencv-contrib"
+            )
         
         # 检测参数
-        self.aruco_params = cv2.aruco.DetectorParameters()
-        self.detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
+        if hasattr(cv2.aruco, 'DetectorParameters'):
+            self.aruco_params = cv2.aruco.DetectorParameters()
+        else:
+            self.aruco_params = cv2.aruco.DetectorParameters_create()
+
+        if hasattr(cv2.aruco, 'ArucoDetector'):
+            self.detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
+        else:
+            self.detector = None
         
         # Charuco检测器（新API）
         try:
@@ -132,6 +161,16 @@ class CharucoPosePublisher(Node):
             self.charuco_detector = None
             self.use_new_api = False
             self.get_logger().info("使用旧版本Charuco API")
+
+    def detect_markers(self, image):
+        """兼容不同版本OpenCV的Aruco marker检测方法"""
+        if self.detector is not None:
+            return self.detector.detectMarkers(image)
+        return cv2.aruco.detectMarkers(
+            image,
+            self.aruco_dict,
+            parameters=self.aruco_params
+        )
     
     def camera_info_callback(self, msg):
         """从camera_info话题获取相机内参"""
@@ -221,7 +260,12 @@ class CharucoPosePublisher(Node):
             else:
                 # 备用方法：使用solvePnP
                 # 获取3D角点
-                object_points = self.charuco_board.getChessboardCorners()[charuco_ids.flatten()]
+                if hasattr(self.charuco_board, 'getChessboardCorners'):
+                    chessboard_corners = self.charuco_board.getChessboardCorners()
+                else:
+                    chessboard_corners = self.charuco_board.chessboardCorners
+
+                object_points = chessboard_corners[charuco_ids.flatten()]
                 success, rvec, tvec = cv2.solvePnP(
                     object_points, charuco_corners, 
                     self.camera_matrix, self.dist_coeffs
@@ -245,7 +289,7 @@ class CharucoPosePublisher(Node):
             result_image = cv_image.copy()  # 用于可视化的图像副本
             
             # 检测Aruco标记
-            marker_corners, marker_ids, _ = self.detector.detectMarkers(gray)
+            marker_corners, marker_ids, _ = self.detect_markers(gray)
             
             pose_detected = False
             charuco_corners_count = 0
@@ -359,4 +403,4 @@ def main(args=None):
             rclpy.shutdown()
 
 if __name__ == '__main__':
-    main() 
+    main()

@@ -89,7 +89,7 @@ def generate_launch_description():
     
     board_size_y_arg = DeclareLaunchArgument(
         'board_size_y',
-        default_value='9',
+        default_value='5',
         description='Charuco板Y方向格子数'
     )
     
@@ -163,4 +163,4 @@ def generate_launch_description():
         # 节点启动
         charuco_pose_publisher,
         easy_handeye2_calibration,
-    ]) 
+    ])

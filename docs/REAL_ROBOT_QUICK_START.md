@@ -57,9 +57,12 @@ If the build fails with "package X not found" for anything inside
 ## Step 4 -- Python dependencies
 
 ```bash
-pip install -r agent/simple_requirements.txt
-pip install opencv-python ultralytics pyrealsense2
+/usr/bin/python3 -m pip install -r agent/simple_requirements.txt
+/usr/bin/python3 -m pip install "numpy<2" "opencv-python==4.10.0.84" ultralytics pyrealsense2
 ```
+
+Use ROS Humble with Ubuntu's system Python 3.10. `cv_bridge` is built against
+NumPy 1.x, so NumPy 2.x will fail at runtime with `_ARRAY_API not found`.
 
 For the LLM agent:
 
@@ -97,7 +100,7 @@ Follow [CALIBRATION_PIPELINE.md](CALIBRATION_PIPELINE.md) end to end. The
 short version:
 
 ```bash
-# Print a ChArUco board (7x9, 25 mm squares, 18 mm markers) and mount it.
+# Print a ChArUco board (7x5, 25 mm squares, 18 mm markers) and mount it.
 # Then:
 ros2 launch mtc_tutorial charuco_handeye_calibration.launch.py \
     calibration_name:=charuco_eye_to_hand_1

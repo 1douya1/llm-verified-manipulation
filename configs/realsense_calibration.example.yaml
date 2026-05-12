@@ -12,7 +12,7 @@
 #        ros2 launch realsense2_camera rs_launch.py align_depth.enable:=true
 #   2. Use the standard ROS 2 camera_calibration tool with a checkerboard:
 #        ros2 run camera_calibration cameracalibrator \
-#          --size 7x9 --square 0.025 \
+#          --size 7x5 --square 0.025 \
 #          image:=/camera/camera/color/image_raw \
 #          camera:=/camera/camera/color
 #   3. Copy the output YAML into your own configs/ file (do NOT commit it).

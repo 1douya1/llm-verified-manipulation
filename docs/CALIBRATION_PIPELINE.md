@@ -9,7 +9,7 @@ something it sees:
    end-effector, depending on mount) and the camera optical frame.
 
 This document walks through both for the RSS reference setup: UF850 +
-RealSense D435i + a 7x9 ChArUco board (25 mm squares, 18 mm markers).
+RealSense D435i + a 7x5 ChArUco board (25 mm squares, 18 mm markers).
 
 ---
 
@@ -22,7 +22,7 @@ the standard ROS 2 camera calibrator:
 ```bash
 ros2 launch realsense2_camera rs_launch.py
 ros2 run camera_calibration cameracalibrator \
-    --size 7x9 --square 0.025 \
+    --size 7x5 --square 0.025 \
     image:=/camera/camera/color/image_raw \
     camera:=/camera/camera/color
 ```
