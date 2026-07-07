@@ -1,4 +1,4 @@
-# RSS Workshop - AI-Driven Robot Manipulation System
+# ECCV Workshop - AI-Driven Robot Manipulation System
 
 **Supplementary Repository for RSS 2025 Conference**
 
